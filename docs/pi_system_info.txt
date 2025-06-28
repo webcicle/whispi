@@ -1,0 +1,110 @@
+🔍 Raspberry Pi System Information for Docker Setup
+==================================================
+Generated: Sat 28 Jun 14:33:05 CEST 2025
+
+📊 BASIC SYSTEM INFO:
+OS: Debian GNU/Linux 12 (bookworm)
+Kernel: 6.6.62+rpt-rpi-v8
+Architecture: aarch64
+Hostname: livpi
+Uptime: up 2 hours, 13 minutes
+
+🔧 HARDWARE INFO:
+./get_pi_info.sh: line 17: warning: command substitution: ignored null byte in input
+Model: Raspberry Pi 5 Model B Rev 1.0
+CPU: Cortex-A76
+CPU Cores: 4
+CPU Architecture: aarch64
+CPU MHz:
+
+💾 MEMORY INFO:
+Total Memory: 7.8Gi
+Available Memory: 7.2Gi
+Swap: 511Mi
+
+🌡️ TEMPERATURE & PERFORMANCE:
+Current Temp: temp=58.2'C
+CPU Clock: frequency(0)=2100031232
+GPU Clock: frequency(0)=572734848
+Throttle Status: throttled=0x0
+Memory Split: arm=1016M / gpu=8M
+
+🐍 PYTHON ENVIRONMENT:
+Python Version: Python 3.11.2
+Python Path: /usr/bin/python3
+/usr/bin/python3: No module named pip
+Pip Version:
+Python Site Packages: /usr/local/lib/python3.11/dist-packages
+Virtual Env Support: Available
+
+📦 PACKAGE VERSIONS:
+APT Packages:
+  alsa-topology-conf: 1.2.5.1-2
+  alsa-ucm-conf: 1.2.8-1
+  alsa-utils: 1.2.8-1+rpt1
+  ffmpeg: 8:5.1.6-0+deb12u1+rpt1
+  libpython3-stdlib:arm64: 3.11.2-1+b1
+  libpython3.11:arm64: 3.11.2-6+deb12u6
+  libpython3.11-minimal:arm64: 3.11.2-6+deb12u6
+  libpython3.11-stdlib:arm64: 3.11.2-6+deb12u6
+  python-is-python3: 3.11.2-1+deb12u1
+  python3: 3.11.2-1+b1
+
+Python Packages (if installed):
+
+🔊 AUDIO SYSTEM:
+ALSA Version: aplay: version 1.2.8 by Jaroslav Kysela <perex@perex.cz>
+Audio Devices:
+  **** List of PLAYBACK Hardware Devices ****
+  card 0: vc4hdmi0 [vc4-hdmi-0], device 0: MAI PCM i2s-hifi-0 [MAI PCM i2s-hifi-0]
+    Subdevices: 1/1
+    Subdevice #0: subdevice #0
+  card 1: vc4hdmi1 [vc4-hdmi-1], device 0: MAI PCM i2s-hifi-0 [MAI PCM i2s-hifi-0]
+    Subdevices: 1/1
+    Subdevice #0: subdevice #0
+Audio Cards:
+   0 [vc4hdmi0       ]: vc4-hdmi - vc4-hdmi-0
+                        vc4-hdmi-0
+   1 [vc4hdmi1       ]: vc4-hdmi - vc4-hdmi-1
+                        vc4-hdmi-1
+
+💿 STORAGE INFO:
+Disk Usage:
+  /dev/mmcblk0p2   59G   21G   35G  37% /
+  /dev/mmcblk0p1  510M   56M  455M  11% /boot/firmware
+SD Card Info:
+  SD Card: SN64G
+  SD Card CID: 035344534e36344786817aa178018900
+
+🌐 NETWORK INFO:
+IP Addresses:
+./get_pi_info.sh: line 85: ip: command not found
+Network Interfaces:
+./get_pi_info.sh: line 87: ip: command not found
+
+🐳 DOCKER INFO:
+Docker: Not installed
+
+⚙️ SYSTEM SERVICES:
+Important Services Status:
+  ssh: active
+  networking: inactive
+not-found
+  systemd-resolved: inactive
+not-found
+
+🔋 POWER & THERMAL:
+CPU Temperature: 58°C
+
+📋 CONFIGURATION FILES:
+Boot Config (key settings):
+
+🏷️ FOR DOCKER OPTIMIZATION:
+Recommended Docker Settings:
+  FROM: python:3.11-slim-bookworm
+  CPU_THREADS: 4
+  MEMORY_LIMIT: 6352M
+  PLATFORM: linux/arm64
+
+✅ System scan complete!
+Save this output and share with your development team.
