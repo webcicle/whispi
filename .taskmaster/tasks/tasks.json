@@ -132,7 +132,7 @@
         "testStrategy": "Test recording with various microphones and audio settings. Verify audio quality meets requirements for transcription. Validate proper handling of permission requests and denials. Ensure recording starts and stops correctly without audio artifacts.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -143,7 +143,7 @@
         "testStrategy": "Test hotkey detection across various macOS applications. Verify push-to-talk functionality works correctly when Fn is pressed and released. Confirm continuous recording mode toggles properly with Fn+SPACE. Ensure hotkeys don't interfere with normal keyboard operation in other applications.",
         "priority": "high",
         "dependencies": [3],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -270,7 +270,7 @@
     ],
     "metadata": {
       "created": "2025-06-28T14:52:53.535Z",
-      "updated": "2025-06-28T16:06:30.901Z",
+      "updated": "2025-06-28T21:58:47.084Z",
       "description": "Tasks for master context"
     }
   }
