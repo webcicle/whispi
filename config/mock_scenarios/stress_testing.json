@@ -1,0 +1,10 @@
+{
+  "description": "Stress testing configuration for resilience validation",
+  "latency_profile": "slow",
+  "error_scenario": "heavy",
+  "resource_constraints": "pi5_stressed",
+  "host": "0.0.0.0",
+  "port": 8765,
+  "model_size": "small.en",
+  "enable_detailed_logging": true
+}

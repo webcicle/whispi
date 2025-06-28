@@ -1,0 +1,10 @@
+{
+  "description": "Fast development configuration for rapid testing",
+  "latency_profile": "fast",
+  "error_scenario": "none",
+  "resource_constraints": "unlimited",
+  "host": "0.0.0.0",
+  "port": 8765,
+  "model_size": "tiny.en",
+  "enable_detailed_logging": true
+}

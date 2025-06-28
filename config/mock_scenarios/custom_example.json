@@ -1,0 +1,33 @@
+{
+  "description": "Custom configuration example with tailored parameters",
+  "latency_profile": "custom",
+  "custom_latency": {
+    "processing_delay_ms": 300,
+    "network_delay_ms": 40,
+    "variability_factor": 0.25
+  },
+  "error_scenario": "custom",
+  "custom_errors": {
+    "failure_rate": 0.06,
+    "timeout_rate": 0.04,
+    "processing_error_rate": 0.02,
+    "error_types": [
+      "NETWORK_ERROR",
+      "TIMEOUT_ERROR",
+      "TRANSCRIPTION_ERROR",
+      "CUSTOM_TEST_ERROR"
+    ]
+  },
+  "resource_constraints": "custom",
+  "custom_resources": {
+    "max_memory_mb": 4096,
+    "max_cpu_percent": 70,
+    "max_concurrent_connections": 8,
+    "memory_pressure_threshold": 0.8,
+    "cpu_throttle_threshold": 0.75
+  },
+  "host": "localhost",
+  "port": 8888,
+  "model_size": "medium.en",
+  "enable_detailed_logging": true
+}

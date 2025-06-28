@@ -1,0 +1,10 @@
+{
+  "description": "Realistic Raspberry Pi 5 simulation for testing",
+  "latency_profile": "normal",
+  "error_scenario": "light",
+  "resource_constraints": "pi5_simulated",
+  "host": "0.0.0.0",
+  "port": 8765,
+  "model_size": "small.en",
+  "enable_detailed_logging": false
+}

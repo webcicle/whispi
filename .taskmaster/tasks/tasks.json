@@ -66,7 +66,7 @@
         "testStrategy": "Verify Docker container builds and runs correctly. Test WebSocket connections from client applications. Validate that mock transcription results are returned with appropriate simulated delays. Ensure the mock server can handle concurrent connections and properly simulates the resource constraints of a Raspberry Pi 5.",
         "priority": "high",
         "dependencies": [1],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -82,7 +82,7 @@
             "title": "Implement Mock WebSocket Server Core",
             "description": "Develop the core WebSocket server that accepts connections and handles the same message types as the real Pi server.",
             "details": "Implement WebSocket server using the websockets library that matches the protocol from task 1. Handle connection, audio, transcription, status, error, ping/pong, client management, and performance tracking message types. Use the existing WebSocket protocol structure but with mock responses.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 2
           },
@@ -91,7 +91,7 @@
             "title": "Implement faster-whisper Simulation Logic",
             "description": "Create mock transcription logic that simulates faster-whisper processing with realistic timing and responses.",
             "details": "Implement simulation of faster-whisper transcription that mimics processing time for tiny.en (faster) vs small.en (slower) models. Generate realistic transcription responses with appropriate delays. Include mock audio processing pipeline that accepts audio chunks and returns transcribed text with timing that matches real-world performance.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 2
           },
@@ -100,7 +100,7 @@
             "title": "Create Configuration System for Mock Scenarios",
             "description": "Build a configuration system to simulate different latency profiles, error conditions, and Pi 5 resource constraints.",
             "details": "Implement configuration options for: different latency profiles (fast/normal/slow), error injection scenarios (network timeouts, processing failures), resource constraint simulation (memory limits, CPU throttling), and concurrent connection limits. Use environment variables or config files to make scenarios easily switchable for testing different conditions.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 2
           },
@@ -109,7 +109,7 @@
             "title": "Set up Docker Compose Orchestration",
             "description": "Create Docker Compose configuration for easy setup, teardown, and management of the mock server environment.",
             "details": "Create docker-compose.yml configuration that includes the mock server container, proper networking setup, volume mounts for configuration, environment variable management, and health checks. Include profiles for different testing scenarios (fast/slow/error-prone). Integrate with existing docker-compose.yml structure if needed.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 2
           },
@@ -118,7 +118,7 @@
             "title": "Implement Testing and Validation Suite",
             "description": "Create comprehensive tests to validate the mock server functionality and ensure it properly simulates the real Pi server.",
             "details": "Implement tests for: WebSocket connection handling, message protocol compatibility, concurrent connection limits, latency simulation accuracy, error scenario injection, resource constraint simulation, and integration with existing client code. Include automated tests that can verify the mock server behaves consistently and realistically compared to expected Pi 5 performance.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 2
           }

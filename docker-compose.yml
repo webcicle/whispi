@@ -63,5 +63,68 @@ services:
       timeout: 10s
       retries: 3
 
+  # Mock server for testing scenarios
+  mock-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mock
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+      - ./config:/app/config
+    environment:
+      - MOCK_SCENARIO_FILE=/app/config/mock_scenarios/fast_development.json
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Mock server with Pi5 simulation
+  mock-pi5:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mock
+    ports:
+      - "8766:8765"
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+      - ./config:/app/config
+    environment:
+      - MOCK_SCENARIO_FILE=/app/config/mock_scenarios/pi5_simulation.json
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Mock server for stress testing
+  mock-stress:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mock
+    ports:
+      - "8767:8765"
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+      - ./config:/app/config
+    environment:
+      - MOCK_SCENARIO_FILE=/app/config/mock_scenarios/stress_testing.json
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   whisper-models:
