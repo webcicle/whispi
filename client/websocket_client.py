@@ -17,6 +17,9 @@ import logging
 from typing import Dict, Any, Optional, Callable, List
 from enum import Enum
 
+# Audio recording system
+from .audio_recorder import AudioRecorder, AudioChunk, RecordingState, PermissionStatus
+
 # Mock imports for testing - real implementation would import actual modules
 try:
     import pyaudio
@@ -211,58 +214,83 @@ class ClientConnectionManager:
 
 
 class EnhancedSpeechClient:
-    """Enhanced WebSocket client for macOS with advanced audio processing and reliability"""
+    """Enhanced Speech Client with real audio recording capabilities"""
     
     def __init__(self, server_url: str = "ws://192.168.1.100:8765"):
         # Connection settings
         self.server_url = server_url
         self.websocket = None
         self.is_connected = False
-        self.is_recording = False
         
-        # Enhanced connection manager
+        # Enhanced connection management
         self.connection_manager = ClientConnectionManager(server_url)
+        self.message_builder = MessageBuilder("enhanced-macos-client", str(uuid.uuid4()))
         
-        # Client identification
-        self.client_id = f"macos-client-{uuid.uuid4().hex[:8]}"
-        self.session_id = f"session-{uuid.uuid4().hex[:8]}"
+        # Audio recording system - use real AudioRecorder
+        self.audio_recorder = AudioRecorder(
+            sample_rate=SAMPLE_RATE,
+            channels=CHANNELS,
+            chunk_size=CHUNK_SIZE
+        )
         
         # Audio configuration
         self.sample_rate = SAMPLE_RATE
         self.channels = CHANNELS
         self.chunk_size = CHUNK_SIZE
         
-        # Audio processing
-        self.audio = None
-        self.vad = None
-        if webrtcvad:
-            self.vad = webrtcvad.Vad(2)
-        
-        # Message handling
-        self.message_builder = MessageBuilder(self.client_id, self.session_id)
-        
-        # Enhanced state tracking
-        self.last_transcription = ""
-        self.last_error = ""
-        self.last_ping_latency = 0.0
-        self.audio_processing_time = 0.0
+        # Recording state
+        self.is_recording = False
         self.audio_start_time = 0.0
-        self.ping_start_time = 0.0
+        self.audio_processing_time = 0.0
         
-        # Health monitoring
-        self.health_check_interval = 30.0  # seconds
+        # Performance tracking
+        self.last_ping_latency = 0.0
+        self.ping_start_time = 0.0
+        self.message_count = 0
+        self.consecutive_errors = 0
+        self.max_consecutive_errors = 5
+        self.last_error = ""
+        
+        # Background tasks
         self.health_monitor_task = None
         self.reconnect_task = None
         
-        # Error recovery
-        self.max_consecutive_errors = 5
-        self.consecutive_errors = 0
-        self.error_recovery_delay = 5.0
+        # VAD (Voice Activity Detection)
+        self.vad = None
+        if webrtcvad:
+            try:
+                self.vad = webrtcvad.Vad(2)  # Aggressiveness level 2
+            except Exception as e:
+                logger.warning(f"VAD initialization failed: {e}")
         
-        # Initialize audio if available
-        if pyaudio:
-            self.audio = pyaudio.PyAudio()
-    
+        # Setup callbacks for audio recorder
+        self._setup_audio_callbacks()
+        
+    def _setup_audio_callbacks(self):
+        """Setup callbacks for the audio recorder"""
+        def handle_audio_chunk(chunk: AudioChunk):
+            """Handle new audio chunk from recorder"""
+            if self.is_connected and self.is_recording:
+                # Process chunk asynchronously
+                asyncio.create_task(self._process_audio_chunk(chunk.data, chunk.chunk_index))
+        
+        def handle_audio_error(error: str):
+            """Handle audio recording errors"""
+            logger.error(f"Audio recording error: {error}")
+            self.last_error = error
+            self.consecutive_errors += 1
+        
+        def handle_audio_level(level_db: float, visual_level: str):
+            """Handle audio level updates"""
+            # Could be used for UI feedback
+            logger.debug(f"Audio level: {level_db:.1f} dB {visual_level}")
+        
+        self.audio_recorder.set_callbacks(
+            chunk_callback=handle_audio_chunk,
+            error_callback=handle_audio_error,
+            level_callback=handle_audio_level
+        )
+
     async def connect(self) -> None:
         """Establish WebSocket connection to server with enhanced error handling"""
         try:
@@ -331,7 +359,7 @@ class EnhancedSpeechClient:
             self.last_error = f"Reconnection failed: {e}"
             
             # Schedule retry after delay
-            await asyncio.sleep(self.error_recovery_delay)
+            await asyncio.sleep(5.0)
             if not self.is_connected:
                 self.reconnect_task = asyncio.create_task(self._handle_connection_loss())
     
@@ -339,13 +367,13 @@ class EnhancedSpeechClient:
         """Monitor connection health with ping/pong"""
         while self.is_connected:
             try:
-                await asyncio.sleep(self.health_check_interval)
+                await asyncio.sleep(30.0)
                 
                 if self.is_connected:
                     await self._send_ping()
                     
                     # Check for missed pongs
-                    if (time.time() - self.ping_start_time) > self.connection_manager.ping_timeout:
+                    if (time.time() - self.ping_start_time) > 10.0:
                         self.connection_manager.missed_pings += 1
                         
                         if self.connection_manager.missed_pings >= self.connection_manager.max_missed_pings:
@@ -405,7 +433,6 @@ class EnhancedSpeechClient:
         """Handle transcription result with error recovery"""
         try:
             text = payload.get("text", "")
-            self.last_transcription = text
             await self._insert_text(text)
             self.consecutive_errors = 0  # Reset error count on success
         except Exception as e:
@@ -477,6 +504,8 @@ class EnhancedSpeechClient:
     def _get_performance_metrics(self) -> Dict[str, Any]:
         """Get enhanced performance metrics"""
         connection_stats = self.connection_manager.get_connection_stats()
+        audio_status = self.audio_recorder.get_status_info()
+        
         return {
             "latency_ms": self.last_ping_latency,
             "audio_processing_time": self.audio_processing_time,
@@ -484,26 +513,53 @@ class EnhancedSpeechClient:
             "connection_state": connection_stats["state"],
             "consecutive_errors": self.consecutive_errors,
             "queue_size": connection_stats["queue_size"],
-            "uptime": connection_stats["uptime"]
+            "uptime": connection_stats["uptime"],
+            "audio_state": audio_status["state"],
+            "audio_level_db": audio_status["audio_level_db"],
+            "audio_buffer_size": audio_status["buffer_size"],
+            "audio_chunk_count": audio_status["chunk_count"]
         }
     
     def _record_audio_chunk(self) -> bytes:
-        """Record a single audio chunk"""
-        # Mock implementation for testing
-        return b'\x00\x01\x02\x03' * 80  # 320 bytes = 20ms at 16kHz
-    
+        """Record a single audio chunk using the real AudioRecorder"""
+        chunk = self.audio_recorder.get_audio_chunk(timeout=0.05)
+        if chunk:
+            return chunk.data
+        else:
+            # Return silence if no audio available
+            return b'\x00' * (self.chunk_size * 2)  # 16-bit silence
+
     async def _process_audio_chunk(self, audio_data: bytes, chunk_index: int, is_final: bool = False) -> None:
         """Process and send audio chunk with error handling"""
         try:
+            # Apply preprocessing
             processed_audio = self._preprocess_audio(audio_data)
-            await self._send_audio_chunk(processed_audio, chunk_index, is_final)
+            
+            # Check for speech activity (optional optimization)
+            if self._has_speech(processed_audio):
+                await self._send_audio_chunk(processed_audio, chunk_index, is_final)
+            elif is_final:
+                # Always send final chunk even if no speech detected
+                await self._send_audio_chunk(processed_audio, chunk_index, is_final)
+                
         except Exception as e:
             logger.error(f"Error processing audio chunk: {e}")
             self.consecutive_errors += 1
-    
+
     async def start_recording(self) -> None:
         """Start audio recording with connection check"""
         if self.is_recording or not self.is_connected:
+            logger.warning("Cannot start recording: already recording or not connected")
+            return
+        
+        # Initialize audio recorder if not done
+        if not await self._ensure_audio_initialized():
+            logger.error("Failed to initialize audio recorder")
+            return
+        
+        # Start the audio recorder
+        if not self.audio_recorder.start_recording():
+            logger.error("Failed to start audio recorder")
             return
         
         self.is_recording = True
@@ -521,14 +577,18 @@ class EnhancedSpeechClient:
         
         if not success:
             self.is_recording = False
+            self.audio_recorder.stop_recording()
             logger.error("Failed to start recording - connection issue")
-    
+
     async def stop_recording(self) -> None:
         """Stop audio recording with proper cleanup"""
         if not self.is_recording:
             return
         
         self.is_recording = False
+        
+        # Stop the audio recorder
+        self.audio_recorder.stop_recording()
         
         # Calculate processing time
         if self.audio_start_time > 0:
@@ -538,7 +598,60 @@ class EnhancedSpeechClient:
         # Send audio end message
         end_msg = self.message_builder.audio_end_message()
         await self._send_with_error_handling(end_msg.to_json())
-    
+
+    async def _ensure_audio_initialized(self) -> bool:
+        """Ensure audio recorder is initialized"""
+        if not hasattr(self.audio_recorder, 'audio') or self.audio_recorder.audio is None:
+            return await self.audio_recorder.initialize()
+        return True
+
+    def _preprocess_audio(self, audio_data: bytes) -> bytes:
+        """Preprocess audio data with error handling"""
+        try:
+            if np is None:
+                return audio_data
+            
+            # Convert bytes to numpy array
+            audio_array = np.frombuffer(audio_data, dtype=np.int16)
+            
+            # Apply basic audio processing
+            # 1. Normalize audio levels
+            if len(audio_array) > 0:
+                max_val = np.max(np.abs(audio_array))
+                if max_val > 0:
+                    # Normalize to 80% of max range to prevent clipping
+                    audio_array = (audio_array * 0.8 * 32767 / max_val).astype(np.int16)
+            
+            # 2. Apply simple noise gate (remove very quiet audio)
+            noise_floor = 500  # Adjust based on testing
+            audio_array = np.where(np.abs(audio_array) < noise_floor, 0, audio_array)
+            
+            return audio_array.tobytes()
+            
+        except Exception as e:
+            logger.error(f"Audio preprocessing error: {e}")
+            return audio_data
+
+    def _has_speech(self, audio_chunk: bytes) -> bool:
+        """Detect speech in audio chunk using WebRTC VAD"""
+        if self.vad is None:
+            return True  # Assume speech if VAD not available
+        
+        try:
+            # VAD requires specific format: 16kHz, 16-bit, mono
+            # Chunk must be 10ms, 20ms, or 30ms
+            chunk_duration_ms = (len(audio_chunk) // 2) * 1000 // self.sample_rate
+            
+            if chunk_duration_ms in [10, 20, 30]:
+                return self.vad.is_speech(audio_chunk, self.sample_rate)
+            else:
+                # If chunk is wrong size, assume speech
+                return True
+                
+        except Exception as e:
+            logger.error(f"VAD error: {e}")
+            return True
+
     async def _send_audio_chunk(self, audio_data: bytes, chunk_index: int, is_final: bool = False) -> None:
         """Send audio chunk with enhanced error handling"""
         if not self.is_connected:
@@ -557,36 +670,6 @@ class EnhancedSpeechClient:
         
         if not success:
             logger.warning(f"Failed to send audio chunk {chunk_index}")
-    
-    def _preprocess_audio(self, audio_data: bytes) -> bytes:
-        """Preprocess audio data with error handling"""
-        try:
-            # Mock preprocessing for testing
-            if np is None:
-                return audio_data
-            
-            # Convert bytes to numpy array
-            audio_array = np.frombuffer(audio_data, dtype=np.int16)
-            
-            # Apply simple noise reduction (placeholder)
-            # In real implementation, apply bandpass filter, noise reduction, etc.
-            
-            return audio_array.tobytes()
-        except Exception as e:
-            logger.error(f"Audio preprocessing error: {e}")
-            return audio_data  # Return original on error
-    
-    def _has_speech(self, audio_chunk: bytes) -> bool:
-        """Detect speech in audio chunk"""
-        if self.vad is None:
-            return True  # Assume speech if VAD not available
-        
-        try:
-            # VAD requires specific sample rate and format
-            return self.vad.is_speech(audio_chunk, self.sample_rate)
-        except Exception as e:
-            logger.error(f"VAD error: {e}")
-            return True  # Assume speech on error
     
     async def _insert_text(self, text: str) -> None:
         """Insert text using accessibility API with error handling"""
@@ -614,11 +697,7 @@ class EnhancedSpeechClient:
         self.is_connected = False
         asyncio.create_task(self.connection_manager.disconnect())
         
-        # Cleanup audio resources
-        if self.audio:
-            try:
-                self.audio.terminate()
-            except Exception as e:
-                logger.warning(f"Audio cleanup error: {e}")
+        # Cleanup audio recorder
+        self.audio_recorder.cleanup()
         
         logger.info("Client cleanup completed") 
