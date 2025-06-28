@@ -44,7 +44,7 @@
             "description": "Add logic for automatic reconnection and robust error handling for both client and server, ensuring reliable communication under network interruptions.",
             "dependencies": [2, 3],
             "details": "Implement reconnection attempts, error logging, and graceful handling of disconnections. Ensure low-latency (<100ms) communication on local network.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Simulate network interruptions and verify reconnection and error handling."
           },
           {
@@ -53,7 +53,7 @@
             "description": "Measure and optimize end-to-end latency, message ordering, and throughput for audio streaming and transcription results.",
             "dependencies": [2, 3, 4],
             "details": "Profile communication, ensure latency <100ms, validate reliable message ordering, and optimize for high throughput. Include performance tracking in message structure.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Conduct latency and throughput tests, analyze logs, and optimize as needed."
           }
         ]
