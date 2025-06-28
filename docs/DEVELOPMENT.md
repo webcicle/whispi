@@ -67,8 +67,8 @@ Expected output:
 
 3. **Hotkey Management** (`client/hotkey_manager.py`)
 
-   - Global SPACE key monitoring (push-to-talk)
-   - Fn + SPACE combination (toggle lock)
+   - Global Fn key monitoring (push-to-talk)
+   - Fn + Fn combination (toggle lock)
    - Visual feedback for recording states
 
 4. **Text Insertion** (`client/text_inserter.py`)
@@ -136,7 +136,7 @@ The project uses environment-based configuration:
 WHISPER_MODEL=tiny.en
 USE_MOCK_SERVER=true
 PI_SERVER_URL=ws://localhost:8765
-HOTKEY_PRIMARY=space
+HOTKEY_PRIMARY=fn
 HOTKEY_LOCK=fn+space
 ```
 
@@ -177,7 +177,7 @@ def test_recording_workflow():
     hotkey_manager = HotkeyManager()
     text_inserter = TextInserter()
 
-    # Simulate: press space -> record -> transcribe -> insert
+    # Simulate: press fn -> record -> transcribe -> insert
     # This tests the complete user workflow
 ```
 

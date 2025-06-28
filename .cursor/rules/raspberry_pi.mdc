@@ -1,0 +1,179 @@
+---
+description: 
+globs: server/*
+alwaysApply: false
+---
+# Raspberry Pi 5 System Compatibility Rules
+
+Based on the actual system specifications from [pi_system_info.txt](mdc:docs/pi_system_info.txt), ensure all server-side code is compatible with the Pi 5 environment.
+
+## **System Specifications**
+- **Architecture**: aarch64 (ARM64)
+- **OS**: Debian GNU/Linux 12 (Bookworm)
+- **Python**: 3.11.2
+- **CPU**: Cortex-A76, 4 cores
+- **Memory**: 7.8Gi total, recommend limiting to 6352M for Docker
+
+## **Python Environment Requirements**
+
+- **Python Version**: Must specify Python 3.11+ compatibility
+- **Package Installation**: pip is NOT pre-installed, must be installed via `python3 -m ensurepip` or apt
+- **Virtual Environment**: Required on Bookworm due to PEP 668
+
+```python
+# ✅ DO: Check Python version compatibility
+import sys
+assert sys.version_info >= (3, 11), "Requires Python 3.11+"
+
+# ✅ DO: Use virtual environment in setup scripts
+python3 -m venv whisper_env --system-site-packages
+source whisper_env/bin/activate
+```
+
+## **Docker Configuration**
+
+```dockerfile
+# ✅ DO: Use correct base image for Pi 5
+FROM python:3.11-slim-bookworm
+
+# ✅ DO: Set platform explicitly
+# Platform: linux/arm64
+
+# ✅ DO: Optimize for Pi 5 specs
+ENV CPU_THREADS=4
+ENV MEMORY_LIMIT=6352M
+```
+
+## **Audio System Compatibility**
+
+- **ALSA Version**: 1.2.8
+- **Available Audio Devices**: HDMI outputs only (vc4-hdmi-0, vc4-hdmi-1)
+- **No USB/3.5mm audio devices detected**
+
+```python
+# ✅ DO: Handle limited audio devices gracefully
+import pyaudio
+
+def get_audio_device():
+    p = pyaudio.PyAudio()
+    # Default to system default, don't assume specific devices
+    return None  # Use default device
+```
+
+## **Performance Optimization**
+
+```python
+# ✅ DO: Optimize for 4-core ARM processor
+import multiprocessing
+
+# Use all 4 cores for faster-whisper
+model = WhisperModel(
+    model_size,
+    device="cpu",
+    compute_type="int8",  # Optimized for ARM
+    num_workers=4  # Use all Pi 5 cores
+)
+
+# ✅ DO: Monitor temperature and performance
+def check_pi_temperature():
+    try:
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            temp = int(f.read()) / 1000
+            if temp > 70:  # Pi 5 thermal throttling threshold
+                logging.warning(f"High temperature: {temp}°C")
+    except FileNotFoundError:
+        pass  # Not on Pi
+```
+
+## **Network Configuration**
+
+- **No 'ip' command available**: Use alternative network tools
+- **Hostname**: livpi
+
+```python
+# ✅ DO: Use Python for network detection instead of 'ip' command
+import socket
+
+def get_pi_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except:
+        return "localhost"
+
+# ❌ DON'T: Use 'ip' command (not available)
+# subprocess.run(['ip', 'addr', 'show'])
+```
+
+## **Storage Considerations**
+
+- **SD Card**: 59G total, 35G available
+- **Model Storage**: Reserve ~3GB for Whisper models
+
+```python
+# ✅ DO: Check available disk space before downloading models
+import shutil
+
+def check_disk_space(required_gb=3):
+    _, _, free = shutil.disk_usage("/")
+    free_gb = free // (1024**3)
+    if free_gb < required_gb:
+        raise RuntimeError(f"Insufficient disk space: {free_gb}GB available, {required_gb}GB required")
+```
+
+## **Service Configuration**
+
+```bash
+# ✅ DO: Create proper systemd service for Pi
+[Unit]
+Description=Speech-to-Text Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/speech-server
+Environment=PATH=/home/pi/speech-server/whisper_env/bin
+ExecStart=/home/pi/speech-server/whisper_env/bin/python /home/pi/speech-server/whisper_server.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## **Common Pitfalls to Avoid**
+
+```python
+# ❌ DON'T: Assume x86 architecture
+# import some_x86_only_package
+
+# ❌ DON'T: Use commands not available on Pi
+# subprocess.run(['ip', 'link', 'show'])  # ip command not found
+
+# ❌ DON'T: Install packages globally without venv
+# pip install package  # Will fail due to PEP 668
+
+# ❌ DON'T: Assume pip is pre-installed
+# import pip  # pip not installed by default
+
+# ✅ DO: Handle Pi-specific constraints
+try:
+    import some_optional_package
+except ImportError:
+    logging.warning("Optional package not available on this platform")
+    some_optional_package = None
+```
+
+## **Testing Commands**
+
+```bash
+# ✅ Test Pi compatibility
+uname -m  # Should return aarch64
+python3 --version  # Should be 3.11.2+
+free -h  # Check memory usage
+vcgencmd measure_temp  # Check temperature (Pi-specific)
+```
+
+Refer to [pi_system_info.txt](mdc:docs/pi_system_info.txt) for complete system specifications and [references_documentation.md](mdc:docs/references_documentation.md) for Pi 5 optimization guides.

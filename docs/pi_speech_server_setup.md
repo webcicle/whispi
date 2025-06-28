@@ -3,6 +3,7 @@
 ## Project Overview
 
 This guide sets up a complete local speech-to-text system with:
+
 - **Raspberry Pi 5**: Server running faster-whisper with WebSocket API
 - **MacBook Air**: Client with global hotkeys and text insertion
 - **Target Performance**: Sub-1 second latency, 85-90% accuracy
@@ -120,47 +121,47 @@ class WhisperServer:
         self.model_size = model_size
         self.model = None
         self.clients = set()
-        
+
         # Performance tracking
         self.stats = {
             "total_requests": 0,
             "avg_processing_time": 0,
             "model_load_time": 0
         }
-        
+
         logger.info(f"Initializing WhisperServer with model: {model_size}")
-        
+
     async def initialize_model(self):
         """Load the Whisper model in a separate thread to avoid blocking"""
         start_time = time.time()
-        
+
         def load_model():
             self.model = WhisperModel(
-                self.model_size, 
-                device="cpu", 
+                self.model_size,
+                device="cpu",
                 compute_type="int8",
                 num_workers=4  # Optimize for Pi 5's 4 cores
             )
-        
+
         # Load model in thread to prevent blocking
         thread = threading.Thread(target=load_model)
         thread.start()
         thread.join()
-        
+
         load_time = time.time() - start_time
         self.stats["model_load_time"] = load_time
         logger.info(f"✅ Model {self.model_size} loaded in {load_time:.2f}s")
-        
+
     async def process_audio(self, audio_data):
         """Process audio data and return transcription"""
         start_time = time.time()
-        
+
         try:
             # Create temporary file for audio data
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
                 temp_file.write(audio_data)
                 temp_path = temp_file.name
-            
+
             # Transcribe audio
             segments, info = self.model.transcribe(
                 temp_path,
@@ -170,23 +171,23 @@ class WhisperServer:
                 vad_filter=True,  # Voice activity detection
                 vad_parameters=dict(min_silence_duration_ms=500)
             )
-            
+
             # Extract text from segments
             transcription = " ".join([segment.text.strip() for segment in segments])
-            
+
             # Clean up temp file
             os.unlink(temp_path)
-            
+
             # Update performance stats
             processing_time = time.time() - start_time
             self.stats["total_requests"] += 1
             self.stats["avg_processing_time"] = (
-                (self.stats["avg_processing_time"] * (self.stats["total_requests"] - 1) + processing_time) 
+                (self.stats["avg_processing_time"] * (self.stats["total_requests"] - 1) + processing_time)
                 / self.stats["total_requests"]
             )
-            
+
             logger.info(f"Transcribed in {processing_time:.2f}s: '{transcription[:50]}...'")
-            
+
             return {
                 "success": True,
                 "transcription": transcription,
@@ -194,7 +195,7 @@ class WhisperServer:
                 "detected_language": info.language,
                 "language_probability": info.language_probability
             }
-            
+
         except Exception as e:
             logger.error(f"Transcription error: {str(e)}")
             return {
@@ -202,13 +203,13 @@ class WhisperServer:
                 "error": str(e),
                 "processing_time": time.time() - start_time
             }
-    
+
     async def handle_client(self, websocket, path):
         """Handle individual WebSocket client connections"""
         client_ip = websocket.remote_address[0]
         logger.info(f"New client connected: {client_ip}")
         self.clients.add(websocket)
-        
+
         try:
             async for message in websocket:
                 try:
@@ -220,37 +221,37 @@ class WhisperServer:
                     else:
                         # JSON message
                         data = json.loads(message)
-                        
+
                         if data.get("type") == "ping":
                             await websocket.send(json.dumps({"type": "pong", "timestamp": time.time()}))
                         elif data.get("type") == "stats":
                             await websocket.send(json.dumps({"type": "stats", "data": self.stats}))
                         else:
                             await websocket.send(json.dumps({"error": "Unknown message type"}))
-                            
+
                 except json.JSONDecodeError:
                     await websocket.send(json.dumps({"error": "Invalid JSON"}))
                 except Exception as e:
                     logger.error(f"Error handling message: {str(e)}")
                     await websocket.send(json.dumps({"error": str(e)}))
-                    
+
         except websockets.exceptions.ConnectionClosed:
             logger.info(f"Client {client_ip} disconnected")
         finally:
             self.clients.discard(websocket)
-    
+
     async def start_server(self):
         """Start the WebSocket server"""
         logger.info("Loading Whisper model...")
         await self.initialize_model()
-        
+
         logger.info(f"Starting WebSocket server on {self.host}:{self.port}")
         server = await websockets.serve(self.handle_client, self.host, self.port)
-        
+
         logger.info(f"🚀 Speech-to-Text server running on ws://{self.host}:{self.port}")
         logger.info(f"📊 Model: {self.model_size}")
         logger.info(f"🔥 Ready for transcription requests!")
-        
+
         return server
 
 def get_pi_ip():
@@ -269,7 +270,7 @@ async def main():
     MODEL_SIZE = "small.en"  # Change to "tiny.en" for faster processing
     HOST = "0.0.0.0"  # Listen on all interfaces
     PORT = 8765
-    
+
     # Display startup info
     pi_ip = get_pi_ip()
     print("=" * 60)
@@ -279,11 +280,11 @@ async def main():
     print(f"Server: ws://{pi_ip}:{PORT}")
     print(f"Local: ws://localhost:{PORT}")
     print("=" * 60)
-    
+
     # Create and start server
     server = WhisperServer(model_size=MODEL_SIZE, host=HOST, port=PORT)
     websocket_server = await server.start_server()
-    
+
     # Run forever
     try:
         await websocket_server.wait_closed()
@@ -337,6 +338,7 @@ python3 whisper_server.py
 ```
 
 You should see output like:
+
 ```
 🎤 Raspberry Pi 5 Speech-to-Text Server
 ============================================================
@@ -435,22 +437,22 @@ class SpeechClient:
         self.is_recording = False
         self.recording_thread = None
         self.hotkey_listener = None
-        
+
         # Audio configuration
         self.audio_format = pyaudio.paInt16
         self.channels = 1
         self.rate = 16000  # Whisper's native sample rate
         self.chunk = 1024
         self.record_seconds = 10  # Maximum recording length
-        
+
         # PyAudio instance
         self.audio = pyaudio.PyAudio()
-        
+
         print("🎤 MacBook Speech Client Ready")
         print(f"📡 Server: {self.server_url}")
-        print("🔥 Press and hold SPACE to record, release to transcribe")
+        print("🔥 Press and hold Fn to record, release to transcribe")
         print("📝 Press Ctrl+C to quit")
-        
+
     async def connect_to_server(self):
         """Connect to the Raspberry Pi server"""
         try:
@@ -460,31 +462,31 @@ class SpeechClient:
         except Exception as e:
             print(f"❌ Connection failed: {e}")
             return False
-    
+
     def start_recording(self):
         """Start audio recording in a separate thread"""
         if self.is_recording:
             return
-            
+
         self.is_recording = True
         self.recording_thread = threading.Thread(target=self._record_audio)
         self.recording_thread.start()
         print("🔴 Recording...")
-    
+
     def stop_recording(self):
         """Stop audio recording and process"""
         if not self.is_recording:
             return
-            
+
         self.is_recording = False
         if self.recording_thread:
             self.recording_thread.join()
         print("⏹️ Recording stopped")
-    
+
     def _record_audio(self):
         """Record audio in separate thread"""
         frames = []
-        
+
         stream = self.audio.open(
             format=self.audio_format,
             channels=self.channels,
@@ -492,9 +494,9 @@ class SpeechClient:
             input=True,
             frames_per_buffer=self.chunk
         )
-        
+
         start_time = time.time()
-        
+
         while self.is_recording and (time.time() - start_time) < self.record_seconds:
             try:
                 data = stream.read(self.chunk)
@@ -502,10 +504,10 @@ class SpeechClient:
             except Exception as e:
                 print(f"Recording error: {e}")
                 break
-        
+
         stream.stop_stream()
         stream.close()
-        
+
         if frames:
             # Create WAV file
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
@@ -515,42 +517,42 @@ class SpeechClient:
                 wf.setframerate(self.rate)
                 wf.writeframes(b''.join(frames))
                 wf.close()
-                
+
                 # Send to server for transcription
                 asyncio.create_task(self._send_audio_for_transcription(temp_file.name))
-    
+
     async def _send_audio_for_transcription(self, audio_file_path):
         """Send audio file to server and handle response"""
         if not self.websocket:
             print("❌ Not connected to server")
             return
-        
+
         try:
             # Read audio file
             with open(audio_file_path, 'rb') as f:
                 audio_data = f.read()
-            
+
             # Send to server
             print("📤 Sending audio to Pi for transcription...")
             await self.websocket.send(audio_data)
-            
+
             # Wait for response
             response = await self.websocket.recv()
             result = json.loads(response)
-            
+
             if result.get("success"):
                 transcription = result["transcription"].strip()
                 processing_time = result.get("processing_time", 0)
-                
+
                 print(f"✅ Transcribed in {processing_time:.2f}s: '{transcription}'")
-                
+
                 if transcription:
                     self._insert_text(transcription)
                 else:
                     print("🔇 No speech detected")
             else:
                 print(f"❌ Transcription failed: {result.get('error', 'Unknown error')}")
-                
+
         except Exception as e:
             print(f"❌ Error during transcription: {e}")
         finally:
@@ -559,7 +561,7 @@ class SpeechClient:
                 os.unlink(audio_file_path)
             except:
                 pass
-    
+
     def _insert_text(self, text):
         """Insert transcribed text at cursor position"""
         try:
@@ -569,7 +571,7 @@ class SpeechClient:
                 focused_element = AXUIElementCreateSystemWide()
                 # Implementation would go here - simplified for demo
                 raise Exception("Accessibility method not implemented")
-                
+
             except:
                 # Method 2: Fallback to AppleScript (simpler, works in most apps)
                 escaped_text = text.replace('"', '\\"').replace("'", "\\'")
@@ -578,10 +580,10 @@ class SpeechClient:
                     keystroke "{escaped_text}"
                 end tell
                 '''
-                
+
                 subprocess.run(['osascript', '-e', applescript], check=True)
                 print(f"📝 Inserted: '{text}'")
-                
+
         except Exception as e:
             print(f"❌ Text insertion failed: {e}")
             print(f"📋 Copied to clipboard instead: '{text}'")
@@ -589,26 +591,26 @@ class SpeechClient:
             pb = NSPasteboard.generalPasteboard()
             pb.clearContents()
             pb.setString_forType_(text, NSStringPboardType)
-    
+
     def on_key_press(self, key):
         """Handle key press events"""
         try:
-            if key == keyboard.Key.space:
+            if key == keyboard.Key.fn:
                 self.start_recording()
         except AttributeError:
             pass
-    
+
     def on_key_release(self, key):
         """Handle key release events"""
         try:
-            if key == keyboard.Key.space:
+            if key == keyboard.Key.fn:
                 self.stop_recording()
             elif key == keyboard.Key.esc or (hasattr(key, 'char') and key.char == 'q'):
                 # Stop listener
                 return False
         except AttributeError:
             pass
-    
+
     def start_hotkey_listener(self):
         """Start listening for hotkeys"""
         self.hotkey_listener = keyboard.Listener(
@@ -616,7 +618,7 @@ class SpeechClient:
             on_release=self.on_key_release
         )
         self.hotkey_listener.start()
-    
+
     def cleanup(self):
         """Clean up resources"""
         if self.hotkey_listener:
@@ -629,23 +631,23 @@ async def main():
     # Replace with your Raspberry Pi's actual IP address
     PI_IP = "192.168.1.100"  # ⚠️ UPDATE THIS
     SERVER_URL = f"ws://{PI_IP}:8765"
-    
+
     client = SpeechClient(SERVER_URL)
-    
+
     # Connect to server
     if not await client.connect_to_server():
         print("❌ Could not connect to speech server")
         print("📋 Make sure your Pi server is running and IP address is correct")
         return
-    
+
     # Start hotkey listener
     client.start_hotkey_listener()
-    
+
     try:
         # Keep the client running
         while True:
             await asyncio.sleep(1)
-            
+
             # Test connection periodically
             try:
                 await client.websocket.send(json.dumps({"type": "ping"}))
@@ -655,7 +657,7 @@ async def main():
                 if not await client.connect_to_server():
                     print("❌ Reconnection failed")
                     break
-                    
+
     except KeyboardInterrupt:
         print("\n👋 Shutting down...")
     finally:
@@ -675,11 +677,13 @@ hostname -I | cut -d' ' -f1
 ```
 
 Then update line 25 in `speech_client.py`:
+
 ```python
 def __init__(self, server_url="ws://YOUR_PI_IP_HERE:8765"):
 ```
 
 And line 139:
+
 ```python
 PI_IP = "YOUR_PI_IP_HERE"  # ⚠️ UPDATE THIS
 ```
@@ -689,7 +693,7 @@ PI_IP = "YOUR_PI_IP_HERE"  # ⚠️ UPDATE THIS
 The client needs microphone and accessibility permissions:
 
 1. **Microphone Permission**: Will be prompted automatically on first run
-2. **Accessibility Permission**: 
+2. **Accessibility Permission**:
    - Go to System Preferences → Security & Privacy → Accessibility
    - Click the lock to make changes
    - Add Terminal or your Python executable to the list
@@ -697,6 +701,7 @@ The client needs microphone and accessibility permissions:
 ### Step 5: Test Complete System
 
 1. **Start Pi Server** (on Raspberry Pi):
+
 ```bash
 cd ~/speech-server
 source whisper_env/bin/activate
@@ -704,14 +709,15 @@ python3 whisper_server.py
 ```
 
 2. **Start MacBook Client** (on MacBook):
+
 ```bash
 cd ~/speech-client
 python3 speech_client.py
 ```
 
 3. **Test Recording**:
-   - Hold SPACE key and speak
-   - Release SPACE key
+   - Hold Fn key and speak
+   - Release Fn key
    - Text should appear at your cursor
 
 ## Performance Optimization
@@ -738,7 +744,7 @@ Edit `whisper_server.py` line 89 to change model:
 MODEL_SIZE = "tiny.en"
 
 # Balanced (1-3s), ~85-90% accuracy (recommended)
-MODEL_SIZE = "small.en"  
+MODEL_SIZE = "small.en"
 
 # Highest accuracy (3-6s), ~90-95% accuracy
 MODEL_SIZE = "base.en"
@@ -770,7 +776,7 @@ ping YOUR_PI_IP
 
 Once working, you can:
 
-1. **Customize hotkeys**: Change from SPACE to Fn+Space or other combinations
+1. **Customize hotkeys**: Change from Fn to Fn+Space or other combinations
 2. **Add wake words**: Integrate voice activation
 3. **Multiple models**: Switch between fast/accurate models dynamically
 4. **Auto-start**: Set up both Pi server and Mac client to start automatically

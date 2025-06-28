@@ -9,6 +9,7 @@
 **Problem**: Virtual environment not activated or package not installed
 
 **Solution**:
+
 ```bash
 # Ensure you're in the virtual environment
 cd ~/speech-server
@@ -27,6 +28,7 @@ pip install faster-whisper
 **Problem**: Server already running or port 8765 in use
 
 **Solution**:
+
 ```bash
 # Find process using port 8765
 sudo lsof -i :8765
@@ -43,6 +45,7 @@ PORT = 8766  # Change this line
 **Problem**: Network issues or insufficient storage
 
 **Solution**:
+
 ```bash
 # Check available space (need ~2GB)
 df -h
@@ -63,6 +66,7 @@ ping google.com
 **Problem**: Pi overheating during transcription
 
 **Solutions**:
+
 ```bash
 # Check current temperature
 vcgencmd measure_temp
@@ -82,6 +86,7 @@ vcgencmd get_throttled
 **Problem**: Bookworm security restrictions
 
 **Solution**:
+
 ```bash
 # Install in virtual environment (required on Bookworm)
 python3 -m venv whisper_env --system-site-packages
@@ -98,6 +103,7 @@ sudo apt install python3-pip python3-venv python3-dev build-essential
 **Problem**: Python packages not installed
 
 **Solution**:
+
 ```bash
 # Install required packages
 pip3 install websockets pyaudio pynput pyobjc-framework-Cocoa pyobjc-framework-ApplicationServices
@@ -112,6 +118,7 @@ brew install python
 **Problem**: PyAudio dependency missing
 
 **Solution**:
+
 ```bash
 # Install PortAudio via Homebrew
 brew install portaudio
@@ -129,6 +136,7 @@ conda install pyaudio
 **Problem**: Network connectivity or firewall issues
 
 **Solutions**:
+
 ```bash
 # Test basic connectivity
 ping YOUR_PI_IP
@@ -149,6 +157,7 @@ sudo ufw allow 8765  # If firewall is active
 **Problem**: macOS blocking microphone access
 
 **Solution**:
+
 1. Go to System Preferences → Security & Privacy → Privacy
 2. Select "Microphone" from left sidebar
 3. Check the box next to Terminal (or Python)
@@ -159,6 +168,7 @@ sudo ufw allow 8765  # If firewall is active
 **Problem**: Accessibility permissions not granted
 
 **Solution**:
+
 1. System Preferences → Security & Privacy → Privacy
 2. Select "Accessibility" from left sidebar
 3. Click lock to make changes
@@ -170,20 +180,21 @@ sudo ufw allow 8765  # If firewall is active
 **Problem**: Key monitoring blocked by macOS
 
 **Solutions**:
+
 ```python
 # Alternative hotkey combinations (edit speech_client.py)
-# Change from SPACE to different key:
+# Change from Fn to different key:
 
 def on_key_press(self, key):
     try:
         # Option 1: Use Fn + Space
         if key == keyboard.Key.space and keyboard.Key.fn in self.pressed_keys:
             self.start_recording()
-        
-        # Option 2: Use Cmd + Space (but conflicts with Spotlight)
+
+        # Option 2: Use Cmd + Fn (but conflicts with Spotlight)
         if key == keyboard.Key.space and keyboard.Key.cmd in self.pressed_keys:
             self.start_recording()
-            
+
         # Option 3: Use F13 key (if available)
         if key == keyboard.Key.f13:
             self.start_recording()
@@ -224,6 +235,7 @@ segments, info = model.transcribe('test.wav')
 **Problem**: Poor transcription accuracy
 
 **Solutions**:
+
 ```python
 # Improve audio quality in speech_client.py
 # Add noise reduction parameters:
@@ -231,10 +243,10 @@ segments, info = model.transcribe('test.wav')
 def _record_audio(self):
     # Increase sample rate for better quality
     self.rate = 44100  # Instead of 16000
-    
+
     # Add noise gate
     volume_threshold = 500  # Adjust based on environment
-    
+
     # Filter out background noise
     if max(np.frombuffer(data, dtype=np.int16)) < volume_threshold:
         continue  # Skip quiet frames
@@ -245,6 +257,7 @@ def _record_audio(self):
 **Problem**: WebSocket connection unstable
 
 **Solution**:
+
 ```python
 # Add connection retry logic to speech_client.py
 
@@ -367,17 +380,17 @@ import gzip
 async def _send_audio_for_transcription(self, audio_file_path):
     with open(audio_file_path, 'rb') as f:
         audio_data = f.read()
-    
+
     # Compress audio data
     compressed_data = gzip.compress(audio_data)
-    
+
     # Send compressed data with header
     message = {
         "type": "audio",
         "compressed": True,
         "data": compressed_data.hex()
     }
-    
+
     await self.websocket.send(json.dumps(message))
 ```
 
@@ -423,29 +436,29 @@ class PerformanceTracker:
             "accuracy_samples": [],
             "error_count": 0
         }
-    
+
     def log_transcription(self, processing_time, word_count, error=None):
         if error:
             self.metrics["error_count"] += 1
             return
-            
+
         self.metrics["total_requests"] += 1
         self.metrics["avg_processing_time"] = (
             (self.metrics["avg_processing_time"] * (self.metrics["total_requests"] - 1) + processing_time)
             / self.metrics["total_requests"]
         )
-        
+
         self.metrics["fastest_transcription"] = min(
             self.metrics["fastest_transcription"], processing_time
         )
         self.metrics["slowest_transcription"] = max(
             self.metrics["slowest_transcription"], processing_time
         )
-        
+
         # Calculate words per second
         wps = word_count / processing_time if processing_time > 0 else 0
         print(f"📊 Performance: {processing_time:.2f}s, {wps:.1f} words/sec")
-    
+
     def get_report(self):
         return {
             "requests_processed": self.metrics["total_requests"],

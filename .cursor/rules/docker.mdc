@@ -1,5 +1,212 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# Docker Development Rules
+
+## **Multi-Architecture Support**
+
+- **Always specify platform for Pi deployment**
+  ```yaml
+  # ✅ DO: Explicit platform specification
+  services:
+    pi-server:
+      platform: linux/arm64
+      build:
+        context: .
+        dockerfile: docker/Dockerfile.pi
+  
+  # ❌ DON'T: Let Docker guess the platform
+  # Leads to x86 images on Pi
+  ```
+
+- **Use appropriate base images**
+  ```dockerfile
+  # ✅ DO: Use Bookworm-based images for Pi compatibility
+  FROM python:3.11-slim-bookworm
+  
+  # ✅ DO: Use multi-stage builds for optimization
+  FROM python:3.11-slim as builder
+  COPY requirements/server.txt .
+  RUN pip install --user -r server.txt
+  
+  FROM python:3.11-slim
+  COPY --from=builder /root/.local /root/.local
+  ```
+
+## **Volume Management**
+
+- **Separate data from code**
+  ```yaml
+  # ✅ DO: Use named volumes for persistent data
+  volumes:
+    - whisper-models:/app/models    # Persist downloaded models
+    - ./server:/app/server          # Development code mounting
+    - ./config:/app/config          # Configuration files
+  
+  volumes:
+    whisper-models:                 # Named volume definition
+  ```
+
+- **Handle file permissions correctly**
+  ```dockerfile
+  # ✅ DO: Set proper permissions for mounted volumes
+  RUN mkdir -p /app/models && chmod 755 /app/models
+  RUN mkdir -p /app/logs && chmod 755 /app/logs
+  ```
+
+## **Environment Configuration**
+
+- **Use environment-specific configs**
+  ```yaml
+  # ✅ DO: Different configs for dev vs production
+  dev-server:
+    environment:
+      - WHISPER_MODEL=tiny.en
+      - LOG_LEVEL=DEBUG
+      - OPTIMIZE_FOR_PI=false
+  
+  pi-server:
+    environment:
+      - WHISPER_MODEL=small.en
+      - LOG_LEVEL=INFO
+      - OPTIMIZE_FOR_PI=true
+      - OMP_NUM_THREADS=4
+  ```
+
+## **Health Checks**
+
+- **Implement proper health monitoring**
+  ```yaml
+  # ✅ DO: Use custom health check scripts
+  healthcheck:
+    test: ["CMD", "python", "/app/healthcheck.py"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+  ```
+
+- **Health check implementation**
+  ```python
+  # ✅ DO: Test actual service functionality
+  def check_health():
+      try:
+          # Test WebSocket port
+          sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+          sock.settimeout(5)
+          result = sock.connect_ex(('localhost', 8765))
+          sock.close()
+          return result == 0
+      except Exception:
+          return False
+  ```
+
+## **Build Optimization**
+
+- **Layer caching strategy**
+  ```dockerfile
+  # ✅ DO: Copy requirements first for better caching
+  COPY requirements/server.txt /app/requirements.txt
+  RUN pip install --no-cache-dir -r requirements.txt
+  
+  # Then copy application code (changes more frequently)
+  COPY server/ /app/server/
+  COPY shared/ /app/shared/
+  
+  # ❌ DON'T: Copy everything at once
+  # COPY . /app/  # Breaks caching on any file change
+  ```
+
+- **Clean up in single layer**
+  ```dockerfile
+  # ✅ DO: Combine install and cleanup
+  RUN apt-get update && apt-get install -y \
+      build-essential \
+      portaudio19-dev \
+      && rm -rf /var/lib/apt/lists/*
+  
+  # ❌ DON'T: Separate RUN commands for package management
+  # RUN apt-get update
+  # RUN apt-get install -y build-essential
+  # RUN rm -rf /var/lib/apt/lists/*
+  ```
+
+## **Security Best Practices**
+
+- **Use non-root user**
+  ```dockerfile
+  # ✅ DO: Create and use non-root user
+  RUN groupadd -r whisper && useradd -r -g whisper whisper
+  RUN chown -R whisper:whisper /app
+  USER whisper
+  ```
+
+- **Minimize attack surface**
+  ```dockerfile
+  # ✅ DO: Use minimal base images
+  FROM python:3.11-slim-bookworm
+  
+  # ✅ DO: Only install required packages
+  RUN apt-get update && apt-get install -y \
+      portaudio19-dev \
+      && rm -rf /var/lib/apt/lists/*
+  ```
+
+## **Development vs Production**
+
+- **Development containers should enable debugging**
+  ```dockerfile
+  # Development Dockerfile
+  FROM python:3.11-slim
+  
+  # Install development tools
+  RUN pip install debugpy pytest-xvfb
+  
+  # Enable hot reloading
+  CMD ["python", "-m", "server.mock_server", "--debug", "--reload"]
+  ```
+
+- **Production containers should be optimized**
+  ```dockerfile
+  # Production Dockerfile
+  FROM python:3.11-slim-bookworm
+  
+  # Pi-specific optimizations
+  ENV OMP_NUM_THREADS=4
+  ENV MKL_NUM_THREADS=4
+  
+  # Production command
+  CMD ["python", "-m", "server.whisper_server"]
+  ```
+
+## **Docker Compose Patterns**
+
+- **Use profiles for different environments**
+  ```yaml
+  # ✅ DO: Use profiles to separate concerns
+  services:
+    dev-server:
+      profiles: ["dev"]
+      # Development-specific config
+    
+    pi-server:
+      profiles: ["production"]
+      # Production-specific config
+  ```
+
+- **Override files for different environments**
+  ```yaml
+  # docker-compose.override.yml (for development)
+  services:
+    dev-server:
+      volumes:
+        - ./:/app  # Mount entire project for development
+      command: ["python", "-m", "server.mock_server", "--reload"]
+  ```
+
+Reference files:
+- [docker-compose.yml](mdc:docker-compose.yml) for service definitions
+- [docker/Dockerfile.dev](mdc:docker/Dockerfile.dev) for development container
+- [docker/Dockerfile.pi](mdc:docker/Dockerfile.pi) for Pi deployment

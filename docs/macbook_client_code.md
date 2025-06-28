@@ -11,6 +11,7 @@ For a more polished experience, here's a complete Swift macOS app that runs in t
 ### Swift App Setup
 
 1. **Create new Xcode project**:
+
    - Open Xcode → Create New Project
    - macOS → App
    - Name: "SpeechTranscriber"
@@ -28,7 +29,7 @@ For a more polished experience, here's a complete Swift macOS app that runs in t
 
 3. **Main App Code** - Replace `ContentView.swift`:
 
-```swift
+````swift
 import SwiftUI
 import AVFoundation
 import Network
@@ -36,7 +37,7 @@ import ApplicationServices
 
 struct ContentView: View {
     @StateObject private var speechClient = SpeechClient()
-    
+
     var body: some View {
         VStack(spacing: 20) {
             HStack {
@@ -46,11 +47,11 @@ struct ContentView: View {
                 Text(speechClient.isConnected ? "Connected to Pi" : "Disconnected")
                     .foregroundColor(.secondary)
             }
-            
+
             VStack(alignment: .leading) {
                 Text("Status: \(speechClient.status)")
                     .font(.headline)
-                
+
                 if speechClient.isRecording {
                     HStack {
                         Circle()
@@ -62,7 +63,7 @@ struct ContentView: View {
                             .foregroundColor(.red)
                     }
                 }
-                
+
                 Text("Last transcription:")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -71,12 +72,12 @@ struct ContentView: View {
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
             }
-            
+
             VStack {
-                Text("Hold SPACE to record")
+                Text("Hold Fn to record")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
+
                 Button("Test Connection") {
                     speechClient.testConnection()
                 }
@@ -95,20 +96,20 @@ class SpeechClient: ObservableObject {
     @Published var isRecording = false
     @Published var status = "Initializing..."
     @Published var lastTranscription = "No transcription yet"
-    
+
     private var audioEngine = AVAudioEngine()
     private var webSocketTask: URLSessionWebSocketTask?
     private var recordingTimer: Timer?
     private var eventMonitor: Any?
-    
+
     private let piServerURL = "ws://192.168.1.100:8765" // UPDATE THIS
-    
+
     func setup() {
         setupAudioEngine()
         connectToServer()
         setupGlobalHotkeys()
     }
-    
+
     private func setupAudioEngine() {
         do {
             let audioSession = AVAudioSession.sharedInstance()
@@ -119,23 +120,23 @@ class SpeechClient: ObservableObject {
             status = "Audio setup failed: \(error.localizedDescription)"
         }
     }
-    
+
     private func connectToServer() {
         guard let url = URL(string: piServerURL) else {
             status = "Invalid server URL"
             return
         }
-        
+
         webSocketTask = URLSession.shared.webSocketTask(with: url)
         webSocketTask?.resume()
-        
+
         // Listen for messages
         receiveMessage()
-        
+
         // Test connection
         testConnection()
     }
-    
+
     private func receiveMessage() {
         webSocketTask?.receive { [weak self] result in
             switch result {
@@ -153,7 +154,7 @@ class SpeechClient: ObservableObject {
             }
         }
     }
-    
+
     private func handleReceivedMessage(_ message: URLSessionWebSocketTask.Message) {
         switch message {
         case .string(let text):
@@ -192,57 +193,57 @@ class EnhancedSpeechClient:
         self.is_recording = False
         self.recording_thread = None
         self.hotkey_listener = None
-        
+
         # Enhanced audio configuration
         self.audio_format = pyaudio.paInt16
         self.channels = 1
         self.rate = 16000
         self.chunk = 320  # 20ms chunks for VAD
         self.record_seconds = 30
-        
+
         # Voice Activity Detection
         self.vad = webrtcvad.Vad(2)  # Aggressiveness level 2
-        
+
         # Audio processing
         self.audio = pyaudio.PyAudio()
         self.audio_buffer = []
-        
+
         print("🎤 Enhanced MacBook Speech Client")
         print(f"📡 Server: {self.server_url}")
-        print("🔥 Press and hold SPACE to record (with noise reduction)")
-        
+        print("🔥 Press and hold Fn to record (with noise reduction)")
+
     def preprocess_audio(self, audio_data):
         """Apply noise reduction and filtering"""
         # Convert to numpy array
         audio_np = np.frombuffer(audio_data, dtype=np.int16)
-        
+
         # Apply bandpass filter (300-3400 Hz for speech)
         nyquist = self.rate * 0.5
         low = 300 / nyquist
         high = 3400 / nyquist
         b, a = butter(4, [low, high], btype='band')
         filtered_audio = lfilter(b, a, audio_np)
-        
+
         # Normalize audio
         filtered_audio = filtered_audio / np.max(np.abs(filtered_audio))
-        
+
         # Convert back to bytes
         return (filtered_audio * 32767).astype(np.int16).tobytes()
-    
+
     def has_speech(self, audio_chunk):
         """Check if audio chunk contains speech using VAD"""
         try:
             return self.vad.is_speech(audio_chunk, self.rate)
         except:
             return True  # Default to assuming speech if VAD fails
-    
+
     def _record_audio_enhanced(self):
         """Enhanced recording with VAD and noise reduction"""
         frames = []
         speech_frames = []
         silence_count = 0
         speech_detected = False
-        
+
         stream = self.audio.open(
             format=self.audio_format,
             channels=self.channels,
@@ -250,14 +251,14 @@ class EnhancedSpeechClient:
             input=True,
             frames_per_buffer=self.chunk
         )
-        
+
         print("🔴 Recording with noise reduction...")
-        
+
         while self.is_recording:
             try:
                 data = stream.read(self.chunk, exception_on_overflow=False)
                 frames.append(data)
-                
+
                 # Check for speech activity
                 if self.has_speech(data):
                     speech_detected = True
@@ -266,23 +267,23 @@ class EnhancedSpeechClient:
                 elif speech_detected:
                     silence_count += 1
                     speech_frames.append(data)
-                    
+
                     # Stop if we have 1 second of silence after speech
                     if silence_count > 50:  # 50 * 20ms = 1 second
                         break
-                        
+
             except Exception as e:
                 print(f"Recording error: {e}")
                 break
-        
+
         stream.stop_stream()
         stream.close()
-        
+
         if speech_frames:
             # Process the speech audio
             audio_data = b''.join(speech_frames)
             processed_audio = self.preprocess_audio(audio_data)
-            
+
             # Create WAV file
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
                 wf = wave.open(temp_file.name, 'wb')
@@ -291,13 +292,13 @@ class EnhancedSpeechClient:
                 wf.setframerate(self.rate)
                 wf.writeframes(processed_audio)
                 wf.close()
-                
+
                 asyncio.create_task(self._send_audio_for_transcription(temp_file.name))
         else:
             print("🔇 No speech detected")
-    
+
     # ... rest of the methods remain the same as the basic version ...
-```
+````
 
 ## Option 4: Automation Script (Zero Configuration)
 
@@ -356,12 +357,12 @@ chmod +x ~/setup_speech_client.sh
 
 ## Comparison of Options
 
-| Option | Setup Time | Features | Background Operation | Maintenance |
-|--------|------------|----------|---------------------|-------------|
-| **Python Script** | 15 min | Basic | Requires Terminal | Low |
-| **Swift App** | 2-3 hours | Professional UI | Yes | Medium |
-| **Enhanced Python** | 30 min | Noise reduction, VAD | Requires Terminal | Low |
-| **Automation Script** | 5 min | Zero config | Requires Terminal | None |
+| Option                | Setup Time | Features             | Background Operation | Maintenance |
+| --------------------- | ---------- | -------------------- | -------------------- | ----------- |
+| **Python Script**     | 15 min     | Basic                | Requires Terminal    | Low         |
+| **Swift App**         | 2-3 hours  | Professional UI      | Yes                  | Medium      |
+| **Enhanced Python**   | 30 min     | Noise reduction, VAD | Requires Terminal    | Low         |
+| **Automation Script** | 5 min      | Zero config          | Requires Terminal    | None        |
 
 ## Recommended Approach
 
