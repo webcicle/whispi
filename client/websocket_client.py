@@ -656,7 +656,7 @@ class EnhancedSpeechClient:
         """Send audio chunk with enhanced error handling"""
         if not self.is_connected:
             logger.warning("Cannot send audio chunk - not connected")
-            return
+            return  # Return gracefully when disconnected
         
         encoded_audio = base64.b64encode(audio_data).decode('utf-8')
         audio_payload = AudioDataPayload(
@@ -670,6 +670,11 @@ class EnhancedSpeechClient:
         
         if not success:
             logger.warning(f"Failed to send audio chunk {chunk_index}")
+            # Only raise ConnectionError if we have too many consecutive errors
+            # This allows for transient network issues while catching persistent problems
+            if self.consecutive_errors >= self.max_consecutive_errors:
+                raise ConnectionError(f"Failed to send audio chunk {chunk_index} - too many consecutive errors")
+            # Otherwise, the error handling is done by _send_with_error_handling (queuing, etc.)
     
     async def _insert_text(self, text: str) -> None:
         """Insert text using accessibility API with error handling"""
