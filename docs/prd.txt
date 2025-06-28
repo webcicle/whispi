@@ -1,0 +1,176 @@
+# Overview  
+Pi-Whispr is a local speech-to-text system that provides fast, private transcription through Raspberry Pi 5 server integration with macOS clients. The system achieves sub-2 second latency for real-time dictation without relying on cloud services, ensuring complete privacy and zero ongoing costs.
+
+This MVP creates a seamless, local speech-to-text solution that enables users to dictate text into any macOS application with minimal latency, maximum privacy, and zero ongoing costs through Raspberry Pi-powered local processing. Pi-Whispr implements the "fastest" approach from three evaluated architectures, prioritizing rapid deployment and reliable performance using WebSocket communication and Python-based components.
+
+# Core Features  
+
+## Universal Speech-to-Text Transcription
+- **Voice Recording System**: Global hotkey-based recording (Fn for push-to-talk, Fn+SPACE for continuous lock mode)
+- **Real-time Processing**: Sub-2 second latency from voice input to text insertion using faster-whisper on Raspberry Pi 5
+- **Universal Text Insertion**: Automatic text insertion at cursor position across all macOS applications using Accessibility API with AppleScript fallback
+
+## Local Processing Infrastructure  
+- **Raspberry Pi Server**: WebSocket server with faster-whisper integration for completely local processing
+- **Audio Optimization**: 16kHz mono recording with Voice Activity Detection to reduce processing overhead by 60-80%
+- **Model Configuration**: Development (tiny.en - 3-9s processing) and production (small.en - 10-30s processing) model options
+
+## Development Environment
+- **Mock Server**: Docker-based development environment for testing without Pi hardware
+- **WebSocket Protocol**: Structured JSON messaging for audio streaming and transcription results
+- **Performance Monitoring**: Temperature monitoring, processing metrics, and connection status tracking
+
+# User Experience  
+
+## Target Users
+- **Primary**: Software developers, writers, and remote workers requiring private, offline transcription
+- **Secondary**: Accessibility users, content creators, and technical enthusiasts interested in local AI processing
+
+## Key User Flows
+
+### Basic Transcription Workflow
+1. User holds Fn key to start recording (push-to-talk mode)
+2. Audio is captured at 16kHz and streamed to Pi server via WebSocket
+3. faster-whisper processes audio locally on Pi
+4. Transcribed text appears at cursor position within 2 seconds
+5. User releases Fn key to stop recording
+
+### Continuous Recording Mode
+1. User presses Fn+SPACE to toggle recording lock
+2. Continuous recording with Voice Activity Detection manages segments
+3. Text appears automatically as speech is processed
+4. User presses Fn+SPACE again to disable lock mode
+
+## UI/UX Considerations
+- **Minimal Interface**: Global hotkeys with visual feedback for recording state
+- **Universal Compatibility**: Works across all macOS applications and text fields
+- **Privacy First**: No cloud dependencies, all processing occurs locally
+- **Accessibility**: Support for users who benefit from voice input alternatives
+
+# Technical Architecture  
+
+## System Components
+- **macOS Client**: Python application with PyAudio for recording, pynput for hotkeys, pyobjc for text insertion
+- **Raspberry Pi Server**: Python WebSocket server with faster-whisper integration
+- **Communication Protocol**: WebSocket-based real-time audio streaming with structured JSON messaging
+- **Development Environment**: Docker containers for mock server testing
+
+## Data Models
+- **Audio Stream**: 16kHz mono, 20ms chunks, 16-bit integer format
+- **WebSocket Messages**: Connection, audio data, transcription results, status updates, error handling
+- **Transcription Results**: Text content, confidence scores, processing metadata
+
+## Infrastructure Requirements
+- **Hardware**: Raspberry Pi 5 (8GB RAM), active cooling, macOS 12+ client
+- **Network**: Local network connection between Pi and macOS client
+- **Storage**: 32GB+ for Pi with Whisper models (tiny.en 39MB, small.en 244MB)
+- **Permissions**: macOS microphone access and accessibility permissions
+
+## Performance Specifications
+- **Total Latency**: Maximum 2 seconds from recording end to text insertion
+- **Processing**: tiny.en model 3-9 seconds, small.en model 10-30 seconds on Pi 5
+- **Network**: WebSocket communication under 100ms on local network
+- **Accuracy**: >70% transcription accuracy for clear English speech
+
+# Development Roadmap  
+
+## Phase 1: MVP Foundation (Current Scope)
+- **Mock Server Implementation**: Docker-based development environment with WebSocket protocol
+- **Python Client Development**: Audio recording, global hotkey detection, basic UI feedback
+- **Text Insertion System**: Accessibility API integration with AppleScript fallback
+- **Pi Server Deployment**: faster-whisper integration, WebSocket server, performance optimization
+- **Integration Testing**: End-to-end workflow validation and performance measurement
+
+## Phase 2: Performance Optimization (Future)
+- **WebRTC Migration**: Replace WebSocket with WebRTC for sub-250ms latency
+- **Advanced Audio Processing**: Opus codec integration and enhanced Voice Activity Detection
+- **Network Optimization**: STUN/TURN server support and adaptive quality management
+
+## Phase 3: Native Experience (Future)
+- **Swift macOS Application**: Native performance and background operation capabilities
+- **Menu Bar Integration**: System tray controls and status indicators
+- **App Store Compatibility**: Sandboxing and distribution optimization
+
+## Phase 4: Advanced Features (Future)
+- **Multi-language Support**: Expand beyond English with dynamic language switching
+- **Custom Vocabulary Training**: Domain-specific model fine-tuning
+- **Multiple Model Support**: Specialized models for different use cases
+
+# Logical Dependency Chain
+
+## Foundation Layer (Build First)
+1. **WebSocket Communication Protocol**: Establish reliable client-server messaging
+2. **Mock Server Environment**: Enable development without Pi hardware dependency
+3. **Basic Audio Recording**: Implement PyAudio-based voice capture system
+
+## Core Functionality Layer
+4. **Global Hotkey System**: Fn key detection for recording control
+5. **Audio Streaming**: Real-time transmission of 20ms audio chunks
+6. **Basic Text Insertion**: Accessibility API implementation for cursor positioning
+
+## Processing Layer  
+7. **Pi Server Setup**: faster-whisper integration and model loading
+8. **Voice Activity Detection**: Optimize processing efficiency with silence detection
+9. **Error Handling**: Network interruption recovery and audio system resilience
+
+## Integration and Polish Layer
+10. **AppleScript Fallback**: Secondary text insertion method for compatibility
+11. **Continuous Recording Mode**: Fn+SPACE toggle functionality with lock management
+12. **Performance Optimization**: Latency measurement and thermal management
+
+## Validation Layer
+13. **End-to-End Testing**: Complete workflow validation with performance metrics
+14. **Documentation**: Setup guides and troubleshooting resources
+15. **Deployment Automation**: Streamlined Pi configuration and client installation
+
+# Risks and Mitigations  
+
+## Technical Challenges
+- **Latency Requirements**: Risk of exceeding 2-second target due to network or processing delays
+  - *Mitigation*: Use faster-whisper optimizations, local network deployment, and model size selection
+- **Audio Hardware Compatibility**: Varied microphone quality and macOS audio system changes
+  - *Mitigation*: Robust audio device detection, fallback options, and comprehensive testing
+
+## MVP Scope Management
+- **Feature Creep**: Risk of expanding beyond WebSocket-based MVP into WebRTC complexity
+  - *Mitigation*: Strict adherence to Phase 1 scope, defer optimization to future phases
+- **Platform Dependencies**: macOS-specific APIs may limit portability
+  - *Mitigation*: Accept platform limitation for MVP, design modular architecture for future expansion
+
+## Resource Constraints
+- **Pi Hardware Performance**: Raspberry Pi 5 may struggle with sustained transcription workloads
+  - *Mitigation*: Active cooling, temperature monitoring, and model size optimization
+- **Development Complexity**: Multiple technologies (Python, WebSocket, Whisper, macOS APIs) increase complexity
+  - *Mitigation*: Phased development approach with mock server for isolated testing
+
+## User Adoption Challenges
+- **Setup Complexity**: Users may struggle with Pi configuration and permission management
+  - *Mitigation*: Comprehensive documentation, automated setup scripts, and clear error messaging
+- **Privacy Concerns**: Users may doubt local processing claims
+  - *Mitigation*: Open source code, network traffic monitoring tools, and clear privacy documentation
+
+# Appendix  
+
+## Success Metrics
+- **Performance**: 95% of transcriptions complete within 2-second target
+- **Accuracy**: >70% transcription accuracy for clear English speech  
+- **Reliability**: 99%+ system uptime, <5% transcription failure rate
+- **User Experience**: 90% setup completion within 30 minutes, 80% feature adoption
+
+## Technical Specifications
+- **Audio Format**: 16kHz mono, 20ms chunks, 16-bit integer
+- **Models**: tiny.en (39MB, 3-9s processing), small.en (244MB, 10-30s processing)
+- **Network**: WebSocket with JSON messaging, automatic reconnection
+- **Hardware**: Pi 5 8GB RAM, active cooling, macOS 12+ client
+
+## Research Findings
+- **Architecture Evaluation**: WebSocket chosen over WebRTC for MVP simplicity
+- **Model Selection**: faster-whisper provides optimal speed/accuracy balance for Pi hardware
+- **Audio Optimization**: 16kHz native format eliminates resampling overhead
+- **VAD Benefits**: Voice Activity Detection reduces processing load by 60-80%
+
+## Development Dependencies
+- **Pi Server**: Python 3.9+, faster-whisper, websockets, numpy
+- **macOS Client**: Python 3.9+, PyAudio, pynput, pyobjc
+- **Development**: Docker, pytest for testing framework
+- **Deployment**: systemd service configuration, network security setup 
