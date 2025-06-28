@@ -24,32 +24,25 @@
             "id": 2,
             "title": "Implement WebSocket Server on Raspberry Pi",
             "description": "Develop the Python-based WebSocket server using the 'websockets' library, supporting structured JSON messaging and handling all defined message types.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Follow pi_speech_server_setup.md Step 4 for server setup. Implement handlers for connection, audio, transcription, status, error, ping/pong, client management, and performance tracking.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test server with mock clients and automated message type validation."
           },
           {
             "id": 3,
             "title": "Implement WebSocket Client on macOS",
             "description": "Develop the Python-based WebSocket client for macOS, capable of sending and receiving structured JSON messages and handling all defined message types.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Ensure client supports connection establishment, audio data transmission, transcription results, status updates, error handling, ping/pong, and performance tracking.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test client against the server with automated message exchange and validation."
           },
           {
             "id": 4,
             "title": "Implement Automatic Reconnection and Error Handling",
             "description": "Add logic for automatic reconnection and robust error handling for both client and server, ensuring reliable communication under network interruptions.",
-            "dependencies": [
-              2,
-              3
-            ],
+            "dependencies": [2, 3],
             "details": "Implement reconnection attempts, error logging, and graceful handling of disconnections. Ensure low-latency (<100ms) communication on local network.",
             "status": "pending",
             "testStrategy": "Simulate network interruptions and verify reconnection and error handling."
@@ -58,11 +51,7 @@
             "id": 5,
             "title": "Validate and Optimize Communication Performance",
             "description": "Measure and optimize end-to-end latency, message ordering, and throughput for audio streaming and transcription results.",
-            "dependencies": [
-              2,
-              3,
-              4
-            ],
+            "dependencies": [2, 3, 4],
             "details": "Profile communication, ensure latency <100ms, validate reliable message ordering, and optimize for high throughput. Include performance tracking in message structure.",
             "status": "pending",
             "testStrategy": "Conduct latency and throughput tests, analyze logs, and optimize as needed."
@@ -76,9 +65,7 @@
         "details": "Implement a Docker container that runs a Python WebSocket server with a mock implementation of the faster-whisper transcription service. The mock server should accept audio streams via WebSocket, simulate processing time based on model selection (tiny.en vs small.en), and return realistic transcription results. Include configuration options for simulating different latency profiles and error conditions. Use Docker Compose for easy setup and teardown. The mock server should implement the same WebSocket protocol as the actual Pi server.",
         "testStrategy": "Verify Docker container builds and runs correctly. Test WebSocket connections from client applications. Validate that mock transcription results are returned with appropriate simulated delays. Ensure the mock server can handle concurrent connections and properly simulates the resource constraints of a Raspberry Pi 5.",
         "priority": "high",
-        "dependencies": [
-          1
-        ],
+        "dependencies": [1],
         "status": "pending",
         "subtasks": []
       },
@@ -100,9 +87,7 @@
         "details": "Use pynput library to implement global hotkey listeners for the Fn key (push-to-talk) and Fn+SPACE combination (continuous recording toggle). Handle key press and release events to start and stop recording appropriately. Implement a state machine to track recording modes (idle, push-to-talk, continuous). Provide visual feedback for the current recording state. Ensure hotkeys work across all applications regardless of focus. Handle edge cases like key release events not being captured if the application loses focus.",
         "testStrategy": "Test hotkey detection across various macOS applications. Verify push-to-talk functionality works correctly when Fn is pressed and released. Confirm continuous recording mode toggles properly with Fn+SPACE. Ensure hotkeys don't interfere with normal keyboard operation in other applications.",
         "priority": "high",
-        "dependencies": [
-          3
-        ],
+        "dependencies": [3],
         "status": "pending",
         "subtasks": []
       },
@@ -113,11 +98,7 @@
         "details": "Implement a streaming system that sends 20ms audio chunks to the WebSocket server as they are recorded. Use the established WebSocket protocol to package audio data in the correct format (16kHz mono, 16-bit integer). Include sequence numbers and timestamps for proper ordering. Implement a buffer management system to handle network latency without audio loss. Add compression if needed to reduce bandwidth usage. Ensure the streaming system can reconnect automatically if the connection is lost.",
         "testStrategy": "Test streaming with various network conditions including packet loss and latency. Verify all audio chunks are received in the correct order by the server. Measure bandwidth usage to ensure it's within acceptable limits for local networks. Test reconnection capabilities during active streaming.",
         "priority": "high",
-        "dependencies": [
-          1,
-          3,
-          4
-        ],
+        "dependencies": [1, 3, 4],
         "status": "pending",
         "subtasks": []
       },
@@ -139,9 +120,7 @@
         "details": "Install and configure faster-whisper on Raspberry Pi 5 with optimizations for the ARM architecture. Set up model loading for both tiny.en (39MB) and small.en (244MB) models. Implement model caching to reduce startup time. Configure the WebSocket server to accept audio streams and return transcription results. Implement temperature monitoring and thermal management to prevent overheating during sustained processing. Create a systemd service for automatic startup and recovery. Optimize memory usage to work within the 8GB RAM constraint of the Pi 5.",
         "testStrategy": "Benchmark transcription speed and accuracy with both tiny.en and small.en models. Monitor temperature during sustained operation to ensure thermal stability. Test memory usage under load to prevent out-of-memory errors. Verify model loading and initialization times meet performance requirements.",
         "priority": "high",
-        "dependencies": [
-          1
-        ],
+        "dependencies": [1],
         "status": "pending",
         "subtasks": []
       },
@@ -152,10 +131,7 @@
         "details": "Implement a Voice Activity Detection system using WebRTC VAD or a similar lightweight solution. Configure the VAD to detect speech vs. silence in the audio stream. Only send audio chunks containing speech to the server for processing, reducing processing overhead by 60-80%. Implement proper segmentation of speech with padding before and after detected speech to avoid clipping. Add configuration options for VAD sensitivity. Ensure the VAD works efficiently on the client side to reduce network traffic.",
         "testStrategy": "Test VAD with various speech patterns and background noise levels. Measure reduction in processing load and network traffic. Verify no speech is missed or clipped. Test with different languages and speaking styles to ensure robust detection.",
         "priority": "medium",
-        "dependencies": [
-          3,
-          5
-        ],
+        "dependencies": [3, 5],
         "status": "pending",
         "subtasks": []
       },
@@ -166,12 +142,7 @@
         "details": "Implement robust error handling throughout the application. Handle WebSocket connection failures with automatic reconnection and session recovery. Manage audio device disconnection or permission changes. Implement graceful degradation for transcription errors. Create a logging system for error tracking and diagnostics. Provide clear user feedback for error conditions with actionable resolution steps. Implement watchdog timers for detecting and recovering from hung states. Create a system for reporting critical errors to the user.",
         "testStrategy": "Simulate various error conditions including network failures, device disconnections, and permission changes. Verify the application recovers gracefully from each error type. Test logging system captures relevant diagnostic information. Ensure error messages are clear and helpful to users.",
         "priority": "medium",
-        "dependencies": [
-          1,
-          3,
-          5,
-          7
-        ],
+        "dependencies": [1, 3, 5, 7],
         "status": "pending",
         "subtasks": []
       },
@@ -182,9 +153,7 @@
         "details": "Implement an AppleScript-based text insertion system as a fallback mechanism. Use pyobjc to execute AppleScript commands for inserting text at the cursor position. Detect when the Accessibility API fails and automatically switch to AppleScript. Handle application-specific edge cases and compatibility issues. Create a preference system to allow users to choose their preferred insertion method. Test compatibility with popular macOS applications.",
         "testStrategy": "Test AppleScript text insertion across various macOS applications. Verify automatic fallback when Accessibility API fails. Compare performance and reliability between the two methods. Test with applications known to have compatibility issues with either method.",
         "priority": "medium",
-        "dependencies": [
-          6
-        ],
+        "dependencies": [6],
         "status": "pending",
         "subtasks": []
       },
@@ -195,10 +164,7 @@
         "details": "Extend the recording system to support a continuous recording mode toggled by Fn+SPACE. Implement a visual indicator for when continuous mode is active. Integrate with Voice Activity Detection to segment speech and reduce processing load. Implement automatic timeout after extended periods of silence to conserve resources. Create a buffer management system to handle continuous audio streams efficiently. Ensure the user can easily toggle between push-to-talk and continuous modes.",
         "testStrategy": "Test continuous recording mode with various speech patterns and silence durations. Verify proper toggling with Fn+SPACE. Measure resource usage during extended continuous recording sessions. Test integration with VAD for efficient processing.",
         "priority": "medium",
-        "dependencies": [
-          4,
-          8
-        ],
+        "dependencies": [4, 8],
         "status": "pending",
         "subtasks": []
       },
@@ -209,11 +175,7 @@
         "details": "Implement comprehensive performance monitoring throughout the system. Measure and log end-to-end latency from audio capture to text insertion. Monitor Raspberry Pi temperature and throttle processing if necessary to prevent overheating. Track WebSocket connection quality and adapt to changing network conditions. Implement adaptive quality settings based on system performance. Create a dashboard for visualizing performance metrics. Optimize critical paths to meet the 2-second latency target.",
         "testStrategy": "Benchmark end-to-end latency under various conditions. Monitor system performance during extended usage. Verify thermal management prevents overheating. Test adaptive quality settings under different load conditions.",
         "priority": "medium",
-        "dependencies": [
-          5,
-          7,
-          9
-        ],
+        "dependencies": [5, 7, 9],
         "status": "pending",
         "subtasks": []
       },
@@ -224,14 +186,7 @@
         "details": "Design and execute end-to-end tests covering the entire workflow from audio recording to text insertion. Measure performance metrics including latency, accuracy, and reliability. Test with various speech patterns, accents, and background noise levels. Verify compatibility with different macOS applications and text fields. Test both push-to-talk and continuous recording modes. Create automated test scripts where possible. Document test results and identify areas for improvement.",
         "testStrategy": "Create a test matrix covering all major features and use cases. Measure key performance indicators against success metrics defined in the PRD. Test with multiple users to account for different speech patterns and usage styles. Document and prioritize any issues discovered.",
         "priority": "medium",
-        "dependencies": [
-          5,
-          6,
-          7,
-          10,
-          11,
-          12
-        ],
+        "dependencies": [5, 6, 7, 10, 11, 12],
         "status": "pending",
         "subtasks": []
       },
@@ -242,20 +197,7 @@
         "details": "Create detailed documentation for both end users and developers. Include step-by-step setup instructions for the Raspberry Pi server and macOS client. Document all features and usage patterns. Create troubleshooting guides for common issues. Include network setup recommendations for optimal performance. Document the WebSocket protocol for future extensions. Create API documentation for developers. Include performance optimization tips and best practices.",
         "testStrategy": "Have users follow documentation to set up the system from scratch. Identify and address any unclear or missing information. Verify troubleshooting guides effectively resolve common issues. Ensure documentation is accessible and easy to navigate.",
         "priority": "low",
-        "dependencies": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12
-        ],
+        "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         "status": "pending",
         "subtasks": []
       },
@@ -266,18 +208,14 @@
         "details": "Develop automated deployment scripts for both the Raspberry Pi server and macOS client. Create a one-click installer for the macOS client that handles permissions and dependencies. Implement a setup script for the Raspberry Pi that installs all required components and configures the system for optimal performance. Include update mechanisms for both client and server. Create backup and restore functionality for user settings and configurations. Implement version checking to ensure compatibility between client and server.",
         "testStrategy": "Test deployment on fresh systems to verify all components are correctly installed and configured. Verify permissions are properly requested and set. Test update mechanisms to ensure smooth transitions between versions. Verify backup and restore functionality preserves all user settings.",
         "priority": "low",
-        "dependencies": [
-          7,
-          13,
-          14
-        ],
+        "dependencies": [7, 13, 14],
         "status": "pending",
         "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-06-28T14:52:53.535Z",
-      "updated": "2025-06-28T15:24:12.204Z",
+      "updated": "2025-06-28T16:06:30.901Z",
       "description": "Tasks for master context"
     }
   }

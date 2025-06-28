@@ -389,6 +389,21 @@ class MessageBuilder:
         """Build a ping message for connection testing"""
         header = self._create_header(MessageType.PING, Priority.NORMAL, ttl=10.0)
         return WebSocketMessage(header=header, payload={"timestamp": time.time()})
+    
+    def audio_start_message(self, audio_config: AudioConfigPayload) -> WebSocketMessage:
+        """Build an audio start message"""
+        header = self._create_header(MessageType.AUDIO_START, Priority.HIGH)
+        return WebSocketMessage(header=header, payload=audio_config.to_dict())
+    
+    def audio_end_message(self) -> WebSocketMessage:
+        """Build an audio end message"""
+        header = self._create_header(MessageType.AUDIO_END, Priority.HIGH)
+        return WebSocketMessage(header=header, payload={"timestamp": time.time()})
+    
+    def disconnect_message(self) -> WebSocketMessage:
+        """Build a disconnect message"""
+        header = self._create_header(MessageType.DISCONNECT, Priority.HIGH)
+        return WebSocketMessage(header=header, payload={"reason": "client_initiated"})
 
 
 class MessageValidator:
@@ -412,6 +427,15 @@ class MessageValidator:
             # Type-specific validation
             return MessageValidator._validate_payload(message.header.message_type, message.payload)
             
+        except Exception:
+            return False
+    
+    @staticmethod
+    def validate_message_json(json_str: str) -> bool:
+        """Validate a JSON message string"""
+        try:
+            message = WebSocketMessage.from_json(json_str)
+            return MessageValidator.validate_message(message)
         except Exception:
             return False
     
