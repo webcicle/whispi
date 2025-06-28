@@ -47,6 +47,7 @@ from shared.constants import (
     SAMPLE_RATE, CHANNELS, AUDIO_FORMAT
 )
 from shared.exceptions import NetworkError, TranscriptionError, ModelError
+from shared.performance import get_performance_tracker, PerformanceTracker
 
 
 # Configure logging
@@ -86,6 +87,9 @@ class WhisperWebSocketServer:
         
         # Thread pool for blocking operations
         self.executor = ThreadPoolExecutor(max_workers=4)
+        
+        # Performance tracking
+        self.performance_tracker = get_performance_tracker()
         
         logger.info(f"WhisperWebSocketServer initialized on {host}:{port} with model {model_size}")
     
@@ -167,6 +171,13 @@ class WhisperWebSocketServer:
             if message.is_expired():
                 logger.warning(f"Received expired message: {message.header.sequence_id}")
                 return
+            
+            # Validate message ordering and track performance
+            self.performance_tracker.validate_message_order(message)
+            
+            # Start timing for request-response cycles if correlation_id exists
+            if message.header.correlation_id:
+                self.performance_tracker.start_request_timing(message.header.correlation_id)
             
             # Route message based on type
             await self._route_message(websocket, message)
@@ -270,6 +281,10 @@ class WhisperWebSocketServer:
                 # For now, we'll process each chunk individually
                 pass
             
+            # Track audio upload throughput
+            audio_bytes = len(audio_data)
+            request_start_time = time.time()
+            
             # Process audio in thread pool to avoid blocking
             start_time = time.time()
             result = await self._transcribe_audio(audio_data)
@@ -286,7 +301,7 @@ class WhisperWebSocketServer:
             result_payload = TranscriptionResultPayload(
                 text=result["text"],
                 confidence=result.get("confidence", 0.95),
-                processing_time=processing_time,
+                processing_time=processing_time * 1000,  # Convert to milliseconds
                 model_used=self.model_size,
                 language=result.get("language", "en"),
                 audio_duration=result.get("duration", 0.0)
@@ -295,7 +310,26 @@ class WhisperWebSocketServer:
             result_message = builder.transcription_result_message(result_payload)
             result_message.header.correlation_id = str(message.header.sequence_id)
             
+            response_start = time.time()
             await websocket.send(result_message.to_json())
+            response_end = time.time()
+            
+            # Track end-to-end latency if correlation_id exists
+            if message.header.correlation_id:
+                self.performance_tracker.end_request_timing(
+                    message.header.correlation_id,
+                    MessageType.TRANSCRIPTION_RESULT,
+                    message.header.sequence_id
+                )
+            
+            # Track throughput for the complete transaction
+            response_bytes = len(result_message.to_json().encode('utf-8'))
+            total_duration = response_end - request_start_time
+            self.performance_tracker.record_throughput(
+                audio_bytes + response_bytes,
+                total_duration,
+                "bidirectional"
+            )
             
             logger.info(f"Transcribed audio in {processing_time:.2f}s: '{result['text'][:50]}...'")
             
@@ -499,15 +533,8 @@ class WhisperWebSocketServer:
             await self._handle_client_disconnect(client_to_remove)
     
     def _get_performance_metrics(self) -> PerformanceMetricsPayload:
-        """Get current performance metrics"""
-        return PerformanceMetricsPayload(
-            latency_ms=self.stats["avg_processing_time"] * 1000,
-            cpu_usage=self._get_cpu_usage(),
-            memory_usage=self._get_memory_usage(),
-            uptime_seconds=time.time() - self._start_time,
-            processing_queue_size=0,  # No queue in basic implementation
-            error_count=self.stats["error_count"]
-        )
+        """Get current performance metrics using the performance tracker"""
+        return self.performance_tracker.get_performance_metrics_payload()
     
     def _get_cpu_usage(self) -> float:
         """Get current CPU usage percentage"""
