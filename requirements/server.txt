@@ -1,0 +1,19 @@
+# Core speech processing
+faster-whisper>=1.0.0
+websockets>=12.0
+asyncio-mqtt>=0.16.0
+
+# Audio processing
+pyaudio>=0.2.11
+webrtcvad>=2.0.10
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+structlog>=23.0.0
+
+# Development/testing (remove for production)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0 

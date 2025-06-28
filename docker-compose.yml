@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  # Development server (runs locally for testing)
+  dev-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+      - ./config:/app/config
+      - whisper-models:/app/models
+    environment:
+      - WHISPER_MODEL=tiny.en
+      - LOG_LEVEL=DEBUG
+      - HOST=0.0.0.0
+      - PORT=8765
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8765/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Production Pi server
+  pi-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pi
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+      - ./config:/app/config
+      - whisper-models:/app/models
+    environment:
+      - WHISPER_MODEL=small.en
+      - LOG_LEVEL=INFO
+      - HOST=0.0.0.0
+      - PORT=8765
+      - OPTIMIZE_FOR_PI=true
+    restart: unless-stopped
+    platform: linux/arm64
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8765/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  whisper-models:

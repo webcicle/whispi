@@ -1,0 +1,319 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Pi-Whispr Development Rules
+
+## **Architecture Decisions (Current Implementation)**
+
+- **Network Protocol**: **WebSocket** (current choice)
+  - Simple implementation and debugging
+  - Adequate performance for local network (~50ms latency)
+  - Well-established patterns and error handling
+  
+- **Client Implementation**: **Python script** (current choice)
+  - Rapid development and iteration
+  - Cross-platform compatibility for testing
+  - Easy debugging and maintenance
+  
+- **Recording Method**: Push-to-talk with lock functionality
+  - SPACE key: Hold to record
+  - Fn + SPACE: Toggle recording lock on/off
+  
+- **Text Insertion**: Accessibility API primary, AppleScript fallback
+  - Cursor-aware precision for development environments
+  - Broad application compatibility
+
+## **Future Roadmap Features (Not Current Priority)**
+
+- **WebRTC Implementation** (Future Enhancement)
+  - ~100-150ms latency improvement over WebSocket
+  - Real-time audio streaming with Opus codec
+  - More complex but optimal for production at scale
+  - **Note**: Implement only after core functionality is stable
+  
+- **Swift Native App** (Future Enhancement)  
+  - ~20-30ms audio latency improvement over Python
+  - Native macOS integration and background operation
+  - App Store distribution potential
+  - **Note**: Implement only after Python client is feature-complete
+
+## **Audio Processing Standards**
+
+- **Use 16kHz sample rate consistently**
+  - Whisper's native rate, avoids resampling overhead
+  - All audio configs should use `SAMPLE_RATE = 16000`
+
+- **Implement proper Voice Activity Detection (VAD)**
+  ```python
+  # ✅ DO: Use WebRTC VAD with proper settings
+  import webrtcvad
+  vad = webrtcvad.Vad(aggressiveness=2)  # 0-3 scale
+  
+  # ❌ DON'T: Process audio without VAD
+  # Leads to unnecessary transcription of silence
+  ```
+
+- **Handle audio chunking correctly**
+  ```python
+  # ✅ DO: Use 20ms chunks for optimal VAD performance
+  CHUNK_SIZE = 320  # 16000 * 0.02 = 20ms at 16kHz
+  
+  # ❌ DON'T: Use random chunk sizes
+  # Affects VAD accuracy and processing efficiency
+  ```
+
+## **Recording Control Patterns**
+
+- **Implement push-to-talk with lock**
+  ```python
+  # ✅ DO: Handle both hold-to-record and lock modes
+  class HotkeyManager:
+      def __init__(self):
+          self.is_recording = False
+          self.is_locked = False
+          
+      def on_space_press(self):
+          if not self.is_locked:
+              self.start_recording()
+              
+      def on_space_release(self):
+          if not self.is_locked:
+              self.stop_recording()
+              
+      def on_fn_space_press(self):
+          self.is_locked = not self.is_locked
+          if self.is_locked:
+              self.start_recording()
+          else:
+              self.stop_recording()
+  ```
+
+- **Provide clear visual feedback**
+  ```python
+  # ✅ DO: Show recording state clearly
+  def update_recording_indicator(self):
+      if self.is_locked and self.is_recording:
+          print("🔴 RECORDING (LOCKED)")
+      elif self.is_recording:
+          print("🔴 RECORDING (Hold SPACE)")
+      else:
+          print("⚪ Ready (Press SPACE to record, Fn+SPACE to lock)")
+  ```
+
+## **WebSocket Communication Patterns (Current)**
+
+- **Use structured message protocol from `shared.protocol`**
+  ```python
+  # ✅ DO: Use protocol classes for consistency
+  from shared.protocol import WebSocketMessage, MessageType
+  
+  message = WebSocketMessage(
+      type=MessageType.TRANSCRIPTION_RESULT,
+      client_id="client_123",
+      data={"text": "transcribed text"}
+  )
+  
+  # ❌ DON'T: Send raw dictionaries
+  # Leads to protocol inconsistencies
+  ```
+
+- **Implement proper error handling and reconnection**
+  ```python
+  # ✅ DO: Handle connection issues gracefully
+  try:
+      await websocket.send(message.to_json())
+  except websockets.exceptions.ConnectionClosed:
+      logger.warning("Client disconnected, attempting reconnection")
+      await self.reconnect_client(client_id)
+  except Exception as e:
+      logger.error(f"Unexpected error: {e}")
+      await self.send_error(client_id, str(e))
+  ```
+
+- **Use ping/pong for connection health**
+  ```python
+  # ✅ DO: Implement heartbeat mechanism
+  async def heartbeat(self):
+      while self.connected:
+          try:
+              pong_waiter = await self.websocket.ping()
+              await pong_waiter
+              await asyncio.sleep(30)  # Ping every 30 seconds
+          except websockets.exceptions.ConnectionClosed:
+              break
+  ```
+
+## **Performance Optimization**
+
+- **Use async/await for I/O operations**
+  ```python
+  # ✅ DO: Async file operations and network calls
+  async def process_audio(self, audio_data: bytes) -> str:
+      loop = asyncio.get_event_loop()
+      # Run CPU-intensive transcription in thread pool
+      result = await loop.run_in_executor(
+          self.executor, self._transcribe_sync, audio_data
+      )
+      return result
+  
+  # ❌ DON'T: Block the event loop
+  # def process_audio(self, audio_data: bytes) -> str:
+  #     return self.model.transcribe(audio_data)  # Blocks
+  ```
+
+- **Implement proper resource cleanup**
+  ```python
+  # ✅ DO: Use context managers and cleanup
+  class AudioRecorder:
+      async def __aenter__(self):
+          self.stream = self.audio.open(...)
+          return self
+      
+      async def __aexit__(self, exc_type, exc_val, exc_tb):
+          if self.stream:
+              self.stream.stop_stream()
+              self.stream.close()
+  ```
+
+## **macOS Integration Standards**
+
+- **Handle permissions gracefully**
+  ```python
+  # ✅ DO: Check permissions before operations
+  def check_microphone_permission() -> bool:
+      try:
+          # Test microphone access
+          stream = pyaudio.PyAudio().open(
+              format=pyaudio.paInt16,
+              channels=1,
+              rate=16000,
+              input=True,
+              frames_per_buffer=1024
+          )
+          stream.close()
+          return True
+      except OSError:
+          return False
+  
+  if not check_microphone_permission():
+      raise PermissionError("Microphone access required")
+  ```
+
+- **Use Accessibility API with AppleScript fallback**
+  ```python
+  # ✅ DO: Try Accessibility API first, fallback to AppleScript
+  def insert_text(text: str) -> bool:
+      try:
+          # Try Accessibility API first (cursor-aware)
+          return self.accessibility_insert(text)
+      except PermissionError:
+          logger.warning("Accessibility API failed, using AppleScript")
+          return self.applescript_insert(text)
+      except Exception as e:
+          logger.error(f"Text insertion failed: {e}")
+          return False
+  ```
+
+## **Development Workflow**
+
+- **Start with mock server for faster iteration**
+  ```python
+  # ✅ DO: Implement mock server first
+  class MockWhisperServer:
+      async def process_audio(self, audio_data: bytes) -> str:
+          # Simulate realistic processing time
+          await asyncio.sleep(random.uniform(0.2, 1.5))
+          return "Mock transcription result"
+  ```
+
+- **Use environment variables for model selection**
+  ```python
+  # ✅ DO: Environment-based configuration
+  import os
+  
+  model_name = os.getenv("WHISPER_MODEL", "tiny.en")
+  use_mock = os.getenv("USE_MOCK_SERVER", "true").lower() == "true"
+  
+  if os.getenv("OPTIMIZE_FOR_PI", "false").lower() == "true":
+      # Pi-specific optimizations
+      compute_type = "int8"
+      num_workers = 4
+  else:
+      # Development optimizations  
+      compute_type = "float16"
+      num_workers = os.cpu_count()
+  ```
+
+## **Error Handling Standards**
+
+- **Use custom exceptions from `shared.exceptions`**
+  ```python
+  # ✅ DO: Raise specific exceptions
+  from shared.exceptions import AudioError, TranscriptionError, NetworkError
+  
+  if not audio_data:
+      raise AudioError("No audio data received")
+  
+  if len(audio_data) > MAX_AUDIO_SIZE:
+      raise AudioError(f"Audio data too large: {len(audio_data)} bytes")
+  
+  # ❌ DON'T: Use generic exceptions
+  # raise Exception("Something went wrong")
+  ```
+
+- **Log with structured context**
+  ```python
+  # ✅ DO: Use structured logging
+  import structlog
+  logger = structlog.get_logger(__name__)
+  
+  logger.info("Transcription completed", 
+              client_id=client_id,
+              processing_time=elapsed,
+              model=model_name,
+              text_length=len(result),
+              locked_mode=self.is_locked)
+  ```
+
+## **File Organization (Current Implementation Priority)**
+
+- **Keep related functionality together**
+  ```
+  ✅ DO: Implement in this order for MVP
+  server/
+    ├── mock_server.py         # 1. Development mock (IMPLEMENT FIRST)
+    ├── whisper_server.py      # 3. Production WebSocket server
+    ├── audio_processor.py     # 4. VAD and audio handling
+    └── transcription.py       # 5. Whisper model wrapper
+  
+  client/
+    ├── speech_client.py       # 2. Main Python client (IMPLEMENT SECOND)
+    ├── audio_recorder.py      # 6. macOS audio capture with PyAudio
+    ├── hotkey_manager.py      # 7. Push-to-talk + lock functionality
+    └── text_inserter.py       # 8. Accessibility API + AppleScript
+  ```
+
+## **Testing Strategy**
+
+- **Mock server testing patterns**
+  ```python
+  # ✅ DO: Test core workflow with mock
+  async def test_recording_workflow():
+      # Test: record -> send -> transcribe -> insert
+      mock_server = MockWhisperServer()
+      client = SpeechClient(server_url="ws://localhost:8765")
+      
+      # Simulate recording
+      audio_data = generate_test_audio()
+      result = await client.send_audio(audio_data)
+      
+      assert result.text is not None
+      assert result.processing_time < 2.0
+  ```
+
+Reference related files:
+- [shared/constants.py](mdc:shared/constants.py) for configuration values
+- [shared/protocol.py](mdc:shared/protocol.py) for message structures  
+- [shared/exceptions.py](mdc:shared/exceptions.py) for error types

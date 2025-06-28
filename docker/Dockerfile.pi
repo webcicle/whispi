@@ -1,0 +1,44 @@
+# Production Dockerfile optimized for Raspberry Pi 5 (ARM64)
+FROM python:3.11-slim-bookworm
+
+WORKDIR /app
+
+# Install system dependencies for Pi
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    portaudio19-dev \
+    ffmpeg \
+    curl \
+    libasound2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements/server.txt /app/requirements.txt
+
+# Install Python dependencies with Pi optimizations
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY server/ /app/server/
+COPY shared/ /app/shared/
+COPY config/ /app/config/
+
+# Create models directory with proper permissions
+RUN mkdir -p /app/models && chmod 755 /app/models
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Pi-specific optimizations
+ENV OMP_NUM_THREADS=4
+ENV MKL_NUM_THREADS=4
+
+# Expose port
+EXPOSE 8765
+
+# Health check endpoint
+COPY docker/healthcheck.py /app/healthcheck.py
+
+# Run production server
+CMD ["python", "-m", "server.whisper_server"] 

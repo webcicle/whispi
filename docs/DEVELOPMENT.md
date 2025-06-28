@@ -1,173 +1,260 @@
 # Development Guide
 
+## Architecture Overview
+
+Pi-Whispr uses a **WebSocket-based architecture** for simplicity and reliability in the MVP phase. Future enhancements may include WebRTC for lower latency and Swift native app for better performance.
+
+### Current Technology Stack
+
+- **Server**: Python WebSocket server with faster-whisper
+- **Client**: Python script with PyAudio and macOS integration
+- **Protocol**: WebSocket with structured JSON messages
+- **Audio**: 16kHz mono, 20ms chunks with WebRTC VAD
+- **Text Insertion**: Accessibility API (primary) + AppleScript (fallback)
+
 ## Getting Started
 
 ### 1. Environment Setup
 
 ```bash
-# Clone or navigate to the project
-cd whisper-server
+# Quick setup with provided script
+./scripts/setup.sh
 
-# Install dependencies
-pip install -r requirements.txt
+# Manual setup
+pip install -r requirements/client.txt
+cp config/development.env .env
 ```
 
-### 2. Testing the Mock Server
+### 2. Development Workflow (Recommended Order)
 
-The mock server allows you to develop and test the client without requiring a Raspberry Pi or the actual Whisper models.
+#### Phase 1: Mock Server Testing
 
-**Terminal 1: Start Mock Server**
-
-```bash
-python server/mock_server.py --debug
-```
-
-**Terminal 2: Test the Server**
+**Goal**: Test core workflow without model complexity
 
 ```bash
+# Terminal 1: Start Mock Server
+docker-compose up dev-server
+
+# Terminal 2: Test the Server
 python scripts/test_mock_server.py
 ```
 
-You should see output like:
+Expected output:
 
 ```
 🧪 Testing Mock Whisper Server
-========================================
-Connecting to mock server at ws://localhost:8765...
 ✅ Connected successfully!
-📥 Initial message: {"type":"status","status":"connected",...}
-🏓 Testing ping...
-📥 Pong response: {"type":"pong","client_id":"test_client",...}
 🎵 Testing audio processing...
-📥 Transcription response: {"type":"transcription_result","text":"Hello world",...}
-✨ Transcribed text: 'Hello world'
-⏱️  Processing time: 0.523s
-🎯 Confidence: 0.85
-✅ All tests passed! Mock server is working correctly.
+✨ Transcribed text: 'Mock transcription result'
+⏱️  Processing time: 0.8s
 ```
+
+#### Phase 2: Python Client Development
+
+**Goal**: Implement hotkey controls and text insertion
+
+1. **Basic WebSocket Client** (`client/speech_client.py`)
+
+   - Connect to mock server
+   - Send/receive structured messages
+   - Handle connection errors and reconnection
+
+2. **Audio Recording** (`client/audio_recorder.py`)
+
+   - PyAudio microphone capture
+   - 16kHz mono recording
+   - VAD-based silence detection
+
+3. **Hotkey Management** (`client/hotkey_manager.py`)
+
+   - Global SPACE key monitoring (push-to-talk)
+   - Fn + SPACE combination (toggle lock)
+   - Visual feedback for recording states
+
+4. **Text Insertion** (`client/text_inserter.py`)
+   - Accessibility API implementation
+   - AppleScript fallback
+   - Error handling and permission checks
+
+#### Phase 3: Docker Integration
+
+**Goal**: Containerized development environment
+
+```bash
+# Build and test development container
+docker-compose build dev-server
+docker-compose up dev-server
+
+# Test client against containerized mock server
+python client/speech_client.py
+```
+
+#### Phase 4: Real Whisper Implementation
+
+**Goal**: Replace mock with actual transcription
+
+1. **Whisper Server** (`server/whisper_server.py`)
+
+   - faster-whisper integration
+   - Model loading and optimization
+   - Audio processing pipeline
+
+2. **Pi Deployment**
+   - ARM64 container build
+   - Model optimization for Pi 5
+   - Performance monitoring
 
 ### 3. Project Structure
 
 ```
-whisper-server/
-├── server/                 # Raspberry Pi server components
-│   ├── mock_server.py     # Development mock server ✅
-│   └── whisper_server.py  # Production Whisper server (TODO)
-├── client/                # macOS client application
-│   └── speech_client.py   # Main client app (TODO)
+pi-whispr/
+├── server/                 # Server components
+│   ├── mock_server.py     # Development mock (IMPLEMENT FIRST)
+│   ├── whisper_server.py  # Production server (Phase 4)
+│   ├── audio_processor.py # VAD and audio handling
+│   └── transcription.py   # Whisper model wrapper
+├── client/                # macOS client (IMPLEMENT SECOND)
+│   ├── speech_client.py   # Main client application
+│   ├── audio_recorder.py  # Audio capture with PyAudio
+│   ├── hotkey_manager.py  # Global hotkey detection
+│   └── text_inserter.py   # macOS text insertion
 ├── shared/                # Common utilities ✅
 │   ├── constants.py       # Configuration constants
 │   ├── exceptions.py      # Custom exceptions
 │   └── protocol.py        # WebSocket protocol
-├── tests/                 # Test suite
-├── scripts/               # Utility scripts
-│   └── test_mock_server.py ✅
-└── docs/                  # Documentation
+└── tests/                 # Test suite
 ```
 
-### 4. Development Workflow
+### 4. Configuration
 
-1. **Start with Mock Server**: Use `server/mock_server.py` for initial development
-2. **Build Client Components**: Develop `client/speech_client.py` against mock server
-3. **Test Locally**: Verify everything works with the mock server
-4. **Deploy to Pi**: Set up actual `server/whisper_server.py` on Raspberry Pi
-5. **Integration Testing**: Test client against real Pi server
+The project uses environment-based configuration:
 
-### 5. Next Steps
+#### Development Settings
 
-Based on the project requirements, here's what needs to be implemented:
+```bash
+# .env (created from config/development.env)
+WHISPER_MODEL=tiny.en
+USE_MOCK_SERVER=true
+PI_SERVER_URL=ws://localhost:8765
+HOTKEY_PRIMARY=space
+HOTKEY_LOCK=fn+space
+```
 
-#### Immediate (Local Development)
+#### Production Settings
 
-- [ ] `client/speech_client.py` - Basic WebSocket client
-- [ ] `client/audio_recorder.py` - Audio capture with PyAudio
-- [ ] `client/hotkey_manager.py` - Global hotkey detection
+```bash
+# config/production.env
+WHISPER_MODEL=small.en
+USE_MOCK_SERVER=false
+PI_SERVER_URL=ws://192.168.1.100:8765
+OPTIMIZE_FOR_PI=true
+```
 
-#### Next Phase (Pi Integration)
+### 5. Testing Strategy
 
-- [ ] `server/whisper_server.py` - Real Whisper server with faster-whisper
-- [ ] `server/audio_processor.py` - Audio processing and VAD
-- [ ] `client/text_inserter.py` - macOS text insertion
+#### Mock Server Testing
 
-#### Testing & Polish
+```python
+# Test WebSocket communication
+async def test_mock_server():
+    client = SpeechClient("ws://localhost:8765")
+    await client.connect()
 
-- [ ] Comprehensive test suite
-- [ ] Performance optimization
-- [ ] Error handling and recovery
-- [ ] Documentation and setup scripts
+    # Test audio processing
+    audio_data = generate_test_audio()
+    result = await client.send_audio(audio_data)
+
+    assert result.text is not None
+    assert result.processing_time < 2.0
+```
+
+#### Integration Testing
+
+```python
+# Test full recording workflow
+def test_recording_workflow():
+    recorder = AudioRecorder()
+    hotkey_manager = HotkeyManager()
+    text_inserter = TextInserter()
+
+    # Simulate: press space -> record -> transcribe -> insert
+    # This tests the complete user workflow
+```
 
 ### 6. Development Tools
 
-- **Logging**: Use structured logging with context (see Python standards rule)
-- **Testing**: Run `python scripts/test_mock_server.py` frequently
-- **Performance**: Mock server simulates 0.2-1.5s processing times
+- **Logging**: Use `structlog` for structured logging with context
+- **Testing**: Run mock server tests frequently during development
+- **Performance**: Mock server simulates realistic processing times (0.2-1.5s)
 - **Debugging**: Use `--debug` flag for verbose logging
 
-### 7. Configuration
+### 7. Performance Targets (Current Implementation)
 
-The project uses centralized configuration in `shared/constants.py`:
+| Component         | Target  | Current Implementation            |
+| ----------------- | ------- | --------------------------------- |
+| Network Latency   | <100ms  | WebSocket (~50ms local)           |
+| Audio Processing  | <500ms  | PyAudio capture                   |
+| Transcription     | <1.5s   | tiny.en model                     |
+| Text Insertion    | <50ms   | Accessibility API                 |
+| **Total Latency** | **<2s** | **Achievable with current stack** |
 
-- **Audio**: 16kHz, mono, 20ms chunks
-- **Network**: WebSocket on port 8765
-- **Performance**: Optimized for Pi 5 with tiny.en model
-- **Client**: Space key for recording, Accessibility API for text insertion
+### 8. Future Enhancement Paths
 
-### 8. Troubleshooting
+#### WebRTC Migration (Phase 2)
+
+- Replace WebSocket with WebRTC data channels
+- Implement Opus codec for audio streaming
+- Add STUN/TURN server support for NAT traversal
+
+#### Swift Native App (Phase 3)
+
+- Port Python client to Swift
+- Use AVAudioEngine for lower-latency audio capture
+- Implement native macOS menu bar integration
+
+### 9. Troubleshooting
 
 **Mock server won't start:**
 
 ```bash
 # Check if port is in use
 lsof -i :8765
-
-# Use different port
-python server/mock_server.py --port 8766
+docker-compose down  # Clean up containers
 ```
 
-**Import errors:**
+**Python client import errors:**
 
 ```bash
-# Make sure you're in the project root
-pwd  # Should show .../whisper-server
+# Install dependencies
+pip install -r requirements/client.txt
 
-# Install missing dependencies
-pip install -r requirements.txt
+# Check Python path
+export PYTHONPATH=$PWD:$PYTHONPATH
 ```
+
+**macOS permission issues:**
+
+- **Microphone**: System Preferences → Privacy → Microphone
+- **Accessibility**: System Preferences → Privacy → Accessibility
+- Add Terminal or Python to both lists
 
 **WebSocket connection issues:**
 
-- Ensure mock server is running
-- Check firewall settings
-- Verify correct host/port in client
+```bash
+# Test server connectivity
+curl -i -N -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: test" \
+  -H "Sec-WebSocket-Version: 13" \
+  http://localhost:8765/
+```
 
-## Architecture Decisions
+## Next Steps
 
-### Why Mock Server First?
+1. **Implement mock server** following `shared/protocol.py` patterns
+2. **Build basic Python client** with WebSocket communication
+3. **Add hotkey functionality** with recording state management
+4. **Integrate text insertion** with permission handling
+5. **Test complete workflow** before moving to real Whisper implementation
 
-- Faster development iteration
-- No dependency on Pi hardware
-- Simulates realistic latency and responses
-- Easier debugging and testing
-
-### Why WebSocket Protocol?
-
-- Low latency compared to HTTP
-- Bidirectional communication
-- Built-in ping/pong for connection health
-- Efficient binary data transmission
-
-### Why Modular Structure?
-
-- Clear separation of concerns
-- Easier testing and maintenance
-- Reusable components
-- Platform-specific optimizations
-
-## Performance Targets
-
-| Component         | Target  | Mock Server               |
-| ----------------- | ------- | ------------------------- |
-| Network Latency   | <50ms   | ~10ms                     |
-| Audio Processing  | <500ms  | 200-1500ms (configurable) |
-| Transcription     | <1.5s   | Simulated                 |
-| **Total Latency** | **<2s** | **Realistic simulation**  |
+Focus on getting the **core workflow working end-to-end** with the mock server before adding complexity.
