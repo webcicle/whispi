@@ -1,0 +1,6 @@
+# Testing requirements for Pi-Whispr mock environment
+docker>=6.0.0
+pytest-asyncio>=0.21.0
+
+# Include all client dependencies for testing client functionality
+-r requirements/client.txt 

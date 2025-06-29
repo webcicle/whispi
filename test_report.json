@@ -1,0 +1,14 @@
+{
+  "connection_tests": {
+    "basic": false,
+    "registration": false
+  },
+  "functionality_tests": {
+    "audio_streaming": false
+  },
+  "performance_tests": {},
+  "pi_simulation_tests": {
+    "performance": false,
+    "overall": false
+  }
+}
