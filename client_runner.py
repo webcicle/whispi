@@ -56,29 +56,32 @@ async def test_with_mock_server(server_url: str, duration: int = 30):
         # Test basic functionality without audio hardware
         logger.info("🧪 Testing basic client operations...")
         
-        # Test client registration
-        logger.info("📋 Testing client registration...")
-        await client._register_client()
-        
-        # Test status request
-        logger.info("📊 Testing status request...")
-        await client._request_server_status()
+        # Test client connection message
+        logger.info("📋 Testing client connection message...")
+        await client._send_connect_message()
         
         # Test ping/pong
         logger.info("🏓 Testing ping/pong...")
         await client._send_ping()
         
+        # Wait a bit for responses
+        await asyncio.sleep(2)
+        
         # Simulate some runtime
         logger.info(f"⏱️ Running for {duration} seconds...")
         for i in range(duration):
             await asyncio.sleep(1)
-            if not client.is_connected:
+            
+            # Check connection status through connection manager
+            if not client.connection_manager.is_connected():
                 logger.warning("⚠️ Connection lost! Attempting to reconnect...")
                 await client.connect()
             
             # Log every 10 seconds
             if (i + 1) % 10 == 0:
                 logger.info(f"   Still running... ({i + 1}/{duration}s)")
+                # Send another ping to keep connection active
+                await client._send_ping()
         
         logger.info("✅ Mock server test completed successfully!")
         
@@ -129,7 +132,7 @@ async def test_with_real_audio(server_url: str):
             await asyncio.sleep(1)
             
             # Check connection status
-            if not client.is_connected:
+            if not client.connection_manager.is_connected():
                 logger.warning("⚠️ Connection lost! Attempting to reconnect...")
                 await client.connect()
             
