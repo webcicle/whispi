@@ -154,7 +154,7 @@
         "testStrategy": "Test streaming with various network conditions including packet loss and latency. Verify all audio chunks are received in the correct order by the server. Measure bandwidth usage to ensure it's within acceptable limits for local networks. Test reconnection capabilities during active streaming.",
         "priority": "high",
         "dependencies": [1, 3, 4],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -165,7 +165,7 @@
         "testStrategy": "Test text insertion across various macOS applications including text editors, browsers, and productivity tools. Verify text appears at the correct cursor position. Test with different text lengths and special characters. Ensure permissions are properly requested and handled.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
